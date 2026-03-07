@@ -6,6 +6,7 @@ import type { Event } from "@opencode-ai/sdk";
 
 import { isAbortLikeError } from "../todo-enforcer/abort-detection";
 import type { TodoEnforcerLifecycleEvent } from "../todo-enforcer/lifecycle";
+import { createTodoEnforcerTelemetry } from "../todo-enforcer/telemetry";
 import {
   extractSessionIDFromEvent,
   isPermissionEvent,
@@ -18,6 +19,7 @@ import type {
 interface WorkflowNotifierArgs {
   ctx: PluginInput;
   config: WorkflowNotifierConfig;
+  spawnProcess?: typeof spawn;
 }
 
 type IdleOutcome =
@@ -68,11 +70,12 @@ const parseClockMinutes = (value: string): number | undefined => {
 };
 
 const runCommandWithOutput = async (
+  spawnProcess: typeof spawn,
   command: string,
   args: string[]
 ): Promise<CommandResult> => {
   return await new Promise<CommandResult>((resolve) => {
-    const child = spawn(command, args, {
+    const child = spawnProcess(command, args, {
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -176,10 +179,29 @@ const isWithinQuietHours = (
 export const createWorkflowNotifier = ({
   ctx,
   config,
+  spawnProcess,
 }: WorkflowNotifierArgs) => {
+  const spawnFn = spawnProcess ?? spawn;
+  const telemetry = createTodoEnforcerTelemetry();
   const trackers = new Map<string, IdleTracker>();
   const projectName = basename(ctx.directory || ctx.worktree || "project");
   const lastNotificationAt = new Map<string, number>();
+
+  const logNotifierEvent = (args: {
+    eventType: WorkflowNotificationEvent;
+    kind: "notifier_sent" | "notifier_suppressed";
+    reason?: string;
+    sessionID?: string;
+  }): void => {
+    telemetry.log({
+      kind: args.kind,
+      metadata: {
+        event_type: args.eventType,
+      },
+      reason: args.reason,
+      sessionID: args.sessionID,
+    });
+  };
 
   const getTracker = (sessionID: string): IdleTracker => {
     const existing = trackers.get(sessionID);
@@ -226,6 +248,7 @@ export const createWorkflowNotifier = ({
 
     if (config.focusCommand.enabled && config.focusCommand.path.length > 0) {
       const result = await runCommandWithOutput(
+        spawnFn,
         config.focusCommand.path,
         config.focusCommand.args
       );
@@ -236,7 +259,7 @@ export const createWorkflowNotifier = ({
       return false;
     }
 
-    const result = await runCommandWithOutput("xdotool", [
+    const result = await runCommandWithOutput(spawnFn, "xdotool", [
       "getactivewindow",
       "getwindowname",
     ]);
@@ -263,8 +286,8 @@ export const createWorkflowNotifier = ({
 
     const key = `${args.eventType}:${args.sessionID ?? "global"}`;
     const now = config.now();
-    const previous = lastNotificationAt.get(key) ?? 0;
-    if (now - previous < config.cooldownMs) {
+    const previous = lastNotificationAt.get(key);
+    if (previous !== undefined && now - previous < config.cooldownMs) {
       return;
     }
     lastNotificationAt.set(key, now);
@@ -287,7 +310,7 @@ export const createWorkflowNotifier = ({
     });
 
     await new Promise<void>((resolve) => {
-      const child = spawn(config.command.path, resolvedArgs, {
+      const child = spawnFn(config.command.path, resolvedArgs, {
         detached: true,
         stdio: "ignore",
       });
@@ -332,10 +355,22 @@ export const createWorkflowNotifier = ({
 
     const now = config.now();
     if (isWithinQuietHours(config, now)) {
+      logNotifierEvent({
+        eventType: args.eventType,
+        kind: "notifier_suppressed",
+        reason: "quiet-hours",
+        sessionID: args.sessionID,
+      });
       return;
     }
 
     if (await isTerminalFocused()) {
+      logNotifierEvent({
+        eventType: args.eventType,
+        kind: "notifier_suppressed",
+        reason: "focused",
+        sessionID: args.sessionID,
+      });
       return;
     }
 
@@ -356,6 +391,12 @@ export const createWorkflowNotifier = ({
       sessionTitle,
     });
     await showFallbackToast({ eventType: args.eventType, message });
+    logNotifierEvent({
+      eventType: args.eventType,
+      kind: "notifier_sent",
+      reason: args.reason,
+      sessionID: args.sessionID,
+    });
   };
 
   const evaluateIdleOutcome = async (
@@ -411,7 +452,7 @@ export const createWorkflowNotifier = ({
     }
   };
 
-  const scheduleIdleEvaluation = (sessionID: string): void => {
+  const scheduleIdleEvaluation = async (sessionID: string): Promise<void> => {
     const tracker = getTracker(sessionID);
     tracker.idleVersion += 1;
     tracker.idleStartedAt = config.now();
@@ -419,6 +460,11 @@ export const createWorkflowNotifier = ({
     clearTimer(tracker);
 
     const idleVersion = tracker.idleVersion;
+    if (config.settleMs <= 0) {
+      await evaluateIdleOutcome(sessionID, idleVersion);
+      return;
+    }
+
     tracker.timer = setTimeout(() => {
       evaluateIdleOutcome(sessionID, idleVersion).catch(NO_OP);
     }, config.settleMs);
@@ -435,6 +481,22 @@ export const createWorkflowNotifier = ({
 
     if (event.kind === "session_deleted") {
       clearSession(event.sessionID);
+      return;
+    }
+
+    if (event.kind === "idle_seen") {
+      if (
+        config.enabled &&
+        shouldNotifyForEvent(config, "terminal_ready") &&
+        isWithinQuietHours(config, config.now())
+      ) {
+        logNotifierEvent({
+          eventType: "terminal_ready",
+          kind: "notifier_suppressed",
+          reason: "quiet-hours",
+          sessionID: event.sessionID,
+        });
+      }
       return;
     }
 
@@ -482,7 +544,7 @@ export const createWorkflowNotifier = ({
       }
       case "session.idle": {
         if (sessionID) {
-          scheduleIdleEvaluation(sessionID);
+          await scheduleIdleEvaluation(sessionID);
         }
         return;
       }

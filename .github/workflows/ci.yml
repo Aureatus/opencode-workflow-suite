@@ -5,6 +5,15 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      run_npm_e2e:
+        description: "Run npm-mode E2E job"
+        required: false
+        type: boolean
+        default: false
+  schedule:
+    - cron: "0 3 * * *"
 
 permissions:
   contents: read
@@ -15,6 +24,7 @@ concurrency:
 
 jobs:
   check:
+    if: ${{ github.event_name != 'schedule' }}
     name: Check
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -45,6 +55,7 @@ jobs:
         run: bun run check
 
   e2e:
+    if: ${{ github.event_name != 'schedule' }}
     name: E2E
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -105,3 +116,66 @@ jobs:
           OPENCODE_WORKFLOW_SUITE_E2E_MAX_ATTEMPTS: "2"
           OPENCODE_WORKFLOW_SUITE_E2E_STRICT: "true"
         run: bun run test:e2e
+
+  e2e_npm:
+    if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.run_npm_e2e == true) }}
+    name: E2E npm-mode
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      OPENCODE_VERSION: "1.1.53"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.5"
+
+      - name: Ensure cache directories exist
+        run: mkdir -p "$HOME/.bun/install/cache" "$HOME/.local/share/opencode" "$HOME/.cache/opencode" "$HOME/.local/bin"
+
+      - name: Cache Bun install cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-cache-${{ runner.os }}-${{ hashFiles('package.json', '.opencode/package.json') }}
+          restore-keys: |
+            bun-cache-${{ runner.os }}-
+
+      - name: Cache OpenCode runtime
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.local/share/opencode
+            ~/.cache/opencode
+          key: opencode-cache-${{ runner.os }}-v1
+
+      - name: Cache OpenCode CLI binary
+        id: cache-opencode-cli-npm
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/bin/opencode
+          key: opencode-cli-${{ runner.os }}-${{ env.OPENCODE_VERSION }}
+          restore-keys: |
+            opencode-cli-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install OpenCode CLI
+        if: steps.cache-opencode-cli-npm.outputs.cache-hit != 'true'
+        run: curl -fsSL https://opencode.ai/install | bash -s -- --version "$OPENCODE_VERSION"
+
+      - name: Add OpenCode to PATH
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Verify OpenCode installation
+        run: opencode --version
+
+      - name: Run npm-mode E2E
+        env:
+          OPENCODE_WORKFLOW_SUITE_E2E_MAX_ATTEMPTS: "2"
+          OPENCODE_WORKFLOW_SUITE_E2E_STRICT: "true"
+        run: bun run test:e2e:npm

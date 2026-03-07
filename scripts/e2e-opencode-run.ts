@@ -28,6 +28,9 @@ interface TelemetryEvent {
 }
 
 interface E2ECase {
+  extraEnv?:
+    | Record<string, string>
+    | ((args: { caseDirectory: string }) => Record<string, string>);
   id: string;
   prompt: string;
   assert: (input: {
@@ -36,6 +39,41 @@ interface E2ECase {
     caseDirectory: string;
   }) => Promise<void> | void;
 }
+
+const resolveCaseEnv = (
+  runCase: E2ECase,
+  caseCwd: string
+): Record<string, string> | undefined => {
+  return typeof runCase.extraEnv === "function"
+    ? runCase.extraEnv({ caseDirectory: caseCwd })
+    : runCase.extraEnv;
+};
+
+const shouldRetryAttempt = (attempt: number): boolean => {
+  return attempt < MAX_COMMAND_ATTEMPTS;
+};
+
+const nextRetryAttempt = async (attempt: number): Promise<number> => {
+  await sleep(COMMAND_RETRY_DELAY_MS * attempt);
+  return attempt + 1;
+};
+
+const shouldRetrySpawnError = (attempt: number, error: unknown): boolean => {
+  const message = error instanceof Error ? error.message : String(error);
+  return shouldRetryAttempt(attempt) && RETRYABLE_FAILURE_PATTERN.test(message);
+};
+
+const shouldRetryCaseAssertion = (
+  attempt: number,
+  result: CommandResult,
+  error: unknown
+): boolean => {
+  return (
+    shouldRetryAttempt(attempt) &&
+    (shouldRetryFailure(result.stdout, result.stderr) ||
+      shouldRetryAssertionError(error))
+  );
+};
 
 const E2E_STOP_COMMAND = "STOP_TODO_CONTINUATION_NOW";
 
@@ -127,7 +165,8 @@ function runOpencodeCommand(
   telemetryPath: string,
   context: string,
   runEnvironment: RunEnvironment,
-  caseCwd: string
+  caseCwd: string,
+  extraEnv?: Record<string, string>
 ): Promise<CommandResult> {
   return new Promise((resolve, reject) => {
     const child = spawn("opencode", ["run", prompt], {
@@ -135,6 +174,8 @@ function runOpencodeCommand(
       env: {
         ...process.env,
         ...runEnvironment.envOverrides,
+        ...extraEnv,
+        XDG_CONFIG_HOME: path.join(caseCwd, ".xdg-config"),
         OPENCODE_WORKFLOW_SUITE_TELEMETRY_PATH: telemetryPath,
         OPENCODE_WORKFLOW_SUITE_TELEMETRY_CONTEXT: context,
         OPENCODE_TODO_ENFORCER_TELEMETRY_PATH: telemetryPath,
@@ -257,6 +298,22 @@ function assertChatMessageCase(input: {
   );
 }
 
+function assertNotifierSuppressedCase(input: {
+  events: TelemetryEvent[];
+}): void {
+  const { events } = input;
+  const suppressed = events.some(
+    (entry) =>
+      entry.kind === "notifier_suppressed" &&
+      (entry.reason === "focused" || entry.reason === "quiet-hours")
+  );
+
+  ensure(
+    suppressed,
+    `Expected notifier suppression telemetry, got events=[${events.map((event) => `${event.kind}:${event.reason ?? ""}`).join(", ")}]`
+  );
+}
+
 async function assertDebugToolCase(input: {
   caseDirectory: string;
   result: CommandResult;
@@ -286,6 +343,18 @@ async function assertDebugToolCase(input: {
 }
 
 function buildCases(): E2ECase[] {
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const startMinutes = (currentMinutes + 24 * 60 - 5) % (24 * 60);
+  const endMinutes = (currentMinutes + 5) % (24 * 60);
+  const formatClock = (minutes: number): string => {
+    const hours = Math.floor(minutes / 60)
+      .toString()
+      .padStart(2, "0");
+    const mins = (minutes % 60).toString().padStart(2, "0");
+    return `${hours}:${mins}`;
+  };
+
   return [
     {
       id: "stop-command",
@@ -296,6 +365,16 @@ function buildCases(): E2ECase[] {
       id: "chat-message",
       prompt: "Automated verification prompt. Reply with exactly OK.",
       assert: assertChatMessageCase,
+    },
+    {
+      id: "notifier-suppression",
+      prompt: "Automated verification prompt. Reply with exactly QUIET_OK.",
+      extraEnv: {
+        OPENCODE_WORKFLOW_SUITE_QUIET_HOURS_ENABLED: "true",
+        OPENCODE_WORKFLOW_SUITE_QUIET_HOURS_START: formatClock(startMinutes),
+        OPENCODE_WORKFLOW_SUITE_QUIET_HOURS_END: formatClock(endMinutes),
+      },
+      assert: assertNotifierSuppressedCase,
     },
     {
       id: "debug-tool",
@@ -319,21 +398,18 @@ async function runCaseWithRetry(args: {
     const context = `${runCase.id}-attempt-${attempt}`;
     let result: CommandResult;
     try {
+      const caseEnv = resolveCaseEnv(runCase, caseCwd);
       result = await runOpencodeCommand(
         runCase.prompt,
         telemetryPath,
         context,
         runEnvironment,
-        caseCwd
+        caseCwd,
+        caseEnv
       );
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      if (
-        attempt < MAX_COMMAND_ATTEMPTS &&
-        RETRYABLE_FAILURE_PATTERN.test(message)
-      ) {
-        await sleep(COMMAND_RETRY_DELAY_MS * attempt);
-        attempt += 1;
+      if (shouldRetrySpawnError(attempt, error)) {
+        attempt = await nextRetryAttempt(attempt);
         continue;
       }
       throw error;
@@ -359,13 +435,8 @@ async function runCaseWithRetry(args: {
       });
       return { events: scopedEvents, result };
     } catch (error) {
-      if (
-        attempt < MAX_COMMAND_ATTEMPTS &&
-        (shouldRetryFailure(result.stdout, result.stderr) ||
-          shouldRetryAssertionError(error))
-      ) {
-        await sleep(COMMAND_RETRY_DELAY_MS * attempt);
-        attempt += 1;
+      if (shouldRetryCaseAssertion(attempt, result, error)) {
+        attempt = await nextRetryAttempt(attempt);
         continue;
       }
       throw error;

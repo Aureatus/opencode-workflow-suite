@@ -75,8 +75,10 @@ const createHooks = (
     event: async (payload: {
       event: Parameters<typeof orchestrator.onEvent>[0]["event"];
     }) => {
-      await orchestrator.onEvent(payload);
-      await notifier.onEvent(payload);
+      await Promise.all([
+        orchestrator.onEvent(payload),
+        notifier.onEvent(payload),
+      ]);
     },
     "chat.message": async (
       payload: Parameters<typeof orchestrator.onChatMessage>[0],

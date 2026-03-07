@@ -51,6 +51,32 @@ const envValue = (name: string): string | undefined => {
   return value && value.length > 0 ? value : undefined;
 };
 
+const envBoolean = (name: string): boolean | undefined => {
+  const value = envValue(name)?.toLowerCase();
+  if (!value) {
+    return undefined;
+  }
+  if (value === "true" || value === "1" || value === "yes") {
+    return true;
+  }
+  if (value === "false" || value === "0" || value === "no") {
+    return false;
+  }
+  return undefined;
+};
+
+const envNumber = (name: string): number | undefined => {
+  const value = envValue(name);
+  if (!value) {
+    return undefined;
+  }
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) {
+    return undefined;
+  }
+  return parsed;
+};
+
 const resolveNotifyCommandPath = (
   options?: WorkflowNotifierOptions
 ): string => {
@@ -94,17 +120,43 @@ export const createWorkflowNotifierConfig = (
 ): WorkflowNotifierConfig => {
   const commandPath = resolveNotifyCommandPath(options);
   const focusCommandPath = resolveFocusCommandPath(options);
+  const quietHours = resolveQuietHours(options);
 
   return {
     enabled: options?.enabled ?? true,
-    settleMs: options?.settleMs ?? 3000,
-    maxWaitMs: options?.maxWaitMs ?? 10_000,
-    pollMs: options?.pollMs ?? 400,
+    settleMs:
+      options?.settleMs ??
+      envNumber("OPENCODE_WORKFLOW_SUITE_NOTIFIER_SETTLE_MS") ??
+      3000,
+    maxWaitMs:
+      options?.maxWaitMs ??
+      envNumber("OPENCODE_WORKFLOW_SUITE_NOTIFIER_MAX_WAIT_MS") ??
+      10_000,
+    pollMs:
+      options?.pollMs ??
+      envNumber("OPENCODE_WORKFLOW_SUITE_NOTIFIER_POLL_MS") ??
+      400,
     cooldownMs: options?.cooldownMs ?? 1500,
     showToastFallback: options?.showToastFallback ?? true,
-    suppressWhenFocused: options?.suppressWhenFocused ?? false,
+    suppressWhenFocused:
+      options?.suppressWhenFocused ??
+      envBoolean("OPENCODE_WORKFLOW_SUITE_SUPPRESS_WHEN_FOCUSED") ??
+      false,
     focusTitleHints: options?.focusTitleHints ?? [...DEFAULT_FOCUS_TITLE_HINTS],
-    quietHours: resolveQuietHours(options),
+    quietHours: {
+      enabled:
+        options?.quietHours?.enabled ??
+        envBoolean("OPENCODE_WORKFLOW_SUITE_QUIET_HOURS_ENABLED") ??
+        quietHours.enabled,
+      start:
+        options?.quietHours?.start ??
+        envValue("OPENCODE_WORKFLOW_SUITE_QUIET_HOURS_START") ??
+        quietHours.start,
+      end:
+        options?.quietHours?.end ??
+        envValue("OPENCODE_WORKFLOW_SUITE_QUIET_HOURS_END") ??
+        quietHours.end,
+    },
     events: resolveEvents(options),
     command: {
       enabled: options?.command?.enabled ?? commandPath.length > 0,
