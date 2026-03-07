@@ -1,0 +1,105 @@
+# opencode-workflow-suite
+
+OpenCode workflow plugin that combines:
+
+- todo continuation enforcement on idle sessions
+- notifier gating that waits for enforcer outcomes before signaling "ready"
+
+## Install
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["opencode-workflow-suite"]
+}
+```
+
+For local development:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["opencode-workflow-suite@file:/absolute/path/to/opencode-workflow-suite"]
+}
+```
+
+## Exports
+
+```ts
+import {
+  createWorkflowSuitePlugin,
+  WorkflowSuitePlugin,
+} from "opencode-workflow-suite";
+```
+
+Legacy aliases are kept for compatibility:
+
+- `TodoEnforcerPlugin`
+- `createTodoEnforcerPlugin`
+
+## Configuration
+
+```ts
+import { createWorkflowSuitePlugin } from "opencode-workflow-suite";
+
+export default createWorkflowSuitePlugin({
+  todoEnforcer: {
+    countdownMs: 1500,
+    continuationCooldownMs: 7000,
+    stopCommand: "/stop-continuation",
+  },
+  notifier: {
+    settleMs: 3500,
+    maxWaitMs: 10000,
+    command: {
+      enabled: true,
+      path: "/usr/bin/paplay",
+      args: ["/home/you/sounds/opencode-ready.ogg"],
+    },
+  },
+});
+```
+
+## Notifier behavior
+
+- waits `notifier.settleMs` after `session.idle`
+- suppresses "ready" signal when enforcer continues work
+- emits terminal-ready only when enforcer outcome is stable (`todo-complete` or settle timeout)
+- can emit events for paused, enforcer-failure, permission, question, and error
+
+Command placeholders:
+
+- `{event}` `{message}` `{project}` `{reason}` `{sessionID}` `{sessionTitle}`
+
+Env override:
+
+- `OPENCODE_WORKFLOW_NOTIFY_COMMAND=/path/to/script-or-binary`
+
+## Todo enforcer defaults
+
+- `countdownMs`: `2000`
+- `countdownGraceMs`: `500`
+- `continuationCooldownMs`: `5000`
+- `abortWindowMs`: `3000`
+- `maxConsecutiveFailures`: `5`
+
+## Debug tool
+
+- Tool: `todo_enforcer_debug_ping`
+- Writes: `<session-directory>/.opencode-workflow-suite-debug-pings.jsonl`
+
+## Development
+
+```bash
+bun install
+bun run check
+bun run test:e2e
+bun run test:e2e:npm
+```
+
+## Releasing
+
+- `bun run release:verify`
+- `bun run release:patch|minor|major|beta:first|beta:next`
+
+See `RELEASING.md` for full workflow details.

@@ -1,0 +1,79 @@
+{
+  "name": "opencode-workflow-suite",
+  "version": "0.1.0",
+  "description": "OpenCode workflow plugin combining todo enforcement and notifier gating",
+  "packageManager": "bun@1.2.22",
+  "type": "module",
+  "main": "./dist/index.mjs",
+  "module": "./dist/index.mjs",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./dist/index.mjs"
+    }
+  },
+  "files": [
+    "dist",
+    "index.d.ts",
+    "README.md",
+    "LICENSE",
+    "docs"
+  ],
+  "scripts": {
+    "dev": "bunx tsdown --watch",
+    "build": "bunx tsdown --fail-on-warn",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:integration": "bun run scripts/integration-test.ts",
+    "test:e2e": "bun run scripts/e2e-opencode-run.ts",
+    "test:e2e:npm": "bun run scripts/e2e-opencode-run.ts --mode npm",
+    "opencode:local": "opencode",
+    "opencode:local:config": "opencode debug config",
+    "opencode:npm": "bun run scripts/run-opencode-npm.ts",
+    "opencode:npm:config": "bun run scripts/run-opencode-npm.ts debug config",
+    "lint": "ultracite check --error-on-warnings",
+    "check": "bun run lint && bun run typecheck && bun run test && bun run test:integration && bun run build",
+    "release:verify": "bun run check && npm pack --dry-run",
+    "release:patch": "npm version patch -m \"chore(release): v%s\"",
+    "release:minor": "npm version minor -m \"chore(release): v%s\"",
+    "release:major": "npm version major -m \"chore(release): v%s\"",
+    "release:beta:first": "npm version prepatch --preid beta -m \"chore(release): v%s\"",
+    "release:beta:next": "npm version prerelease --preid beta -m \"chore(release): v%s\"",
+    "prepare": "husky",
+    "prepack": "bun run build",
+    "fix": "ultracite fix --unsafe"
+  },
+  "keywords": [
+    "opencode",
+    "plugin",
+    "workflow",
+    "todo",
+    "enforcer",
+    "notifier",
+    "idle"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Aureatus/opencode-workflow-suite.git"
+  },
+  "homepage": "https://github.com/Aureatus/opencode-workflow-suite",
+  "bugs": {
+    "url": "https://github.com/Aureatus/opencode-workflow-suite/issues"
+  },
+  "license": "MIT",
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.0.150"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.3.13",
+    "@types/bun": "latest",
+    "husky": "^9.1.7",
+    "tsdown": "^0.20.3",
+    "typescript": "^5.9.3",
+    "ultracite": "7.1.4"
+  }
+}

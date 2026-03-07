@@ -1,0 +1,7 @@
+{
+  "name": "opencode-workflow-suite-plugin-local-dev",
+  "private": true,
+  "dependencies": {
+    "@opencode-ai/plugin": "1.2.20"
+  }
+}
