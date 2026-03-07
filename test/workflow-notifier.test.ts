@@ -1,14 +1,18 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 import type { PluginInput } from "@opencode-ai/plugin";
 import type { Event } from "@opencode-ai/sdk";
 
 import { createWorkflowNotifierConfig } from "../src/notifier/config";
 import { createWorkflowNotifier } from "../src/notifier/notifier";
 
+const flushAsync = async (): Promise<void> => {
+  await Promise.resolve();
+  await Promise.resolve();
+};
+
 const sleep = async (ms: number): Promise<void> => {
-  await new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
+  jest.advanceTimersByTime(ms);
+  await flushAsync();
 };
 
 const createHarness = () => {
@@ -63,6 +67,15 @@ const idleEvent = (sessionID: string): Event => {
 };
 
 describe("workflow notifier", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+  });
+
   test("notifies on terminal ready idle outcome", async () => {
     const harness = createHarness();
     const notifier = createWorkflowNotifier({
@@ -150,6 +163,63 @@ describe("workflow notifier", () => {
     expect(harness.toastCalls).toHaveLength(1);
     expect(harness.toastCalls[0]?.message).toContain("Question requires input");
 
+    notifier.dispose();
+  });
+
+  test("suppresses notifications when focus command reports focused", async () => {
+    const harness = createHarness();
+    const notifier = createWorkflowNotifier({
+      ctx: harness.ctx,
+      config: createWorkflowNotifierConfig({
+        focusCommand: {
+          enabled: true,
+          path: "/bin/true",
+          args: [],
+        },
+        command: { enabled: false },
+        suppressWhenFocused: true,
+      }),
+    });
+
+    await notifier.onEvent({
+      event: {
+        type: "permission.updated",
+        properties: {
+          sessionID: "session-1",
+        },
+      } as Event,
+    });
+
+    expect(harness.toastCalls).toHaveLength(0);
+    notifier.dispose();
+  });
+
+  test("suppresses notifications during quiet hours", async () => {
+    const harness = createHarness();
+    const now = new Date("2026-01-01T23:30:00.000Z").getTime();
+    const notifier = createWorkflowNotifier({
+      ctx: harness.ctx,
+      config: createWorkflowNotifierConfig({
+        command: { enabled: false },
+        now: () => now,
+        quietHours: {
+          enabled: true,
+          start: "22:00",
+          end: "08:00",
+        },
+      }),
+    });
+
+    await notifier.onEvent({
+      event: {
+        type: "permission.updated",
+        properties: {
+          sessionID: "session-1",
+        },
+      } as Event,
+    });
+
+    expect(harness.toastCalls).toHaveLength(0);
     notifier.dispose();
   });
 });

@@ -52,6 +52,7 @@ export const createTodoEnforcerConfig = (
     prompt: options?.prompt ?? CONTINUATION_PROMPT,
     stopCommand:
       options?.stopCommand ??
+      envValue("OPENCODE_WORKFLOW_SUITE_STOP_COMMAND") ??
       envValue("OPENCODE_TODO_ENFORCER_STOP_COMMAND") ??
       STOP_CONTINUATION_COMMAND,
     skipAgents: options?.skipAgents ?? [...DEFAULT_SKIP_AGENTS],

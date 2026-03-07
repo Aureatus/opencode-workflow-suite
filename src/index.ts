@@ -20,6 +20,8 @@ export interface TodoWorkflowOptions {
   notifier?: WorkflowNotifierOptions;
 }
 
+export type WorkflowSuiteOptions = TodoWorkflowOptions;
+
 type LegacyOrWorkflowOptions = TodoWorkflowOptions | TodoEnforcerOptions;
 
 const isWorkflowOptions = (

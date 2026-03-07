@@ -1,6 +1,10 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import type { Event, Part, Todo } from "@opencode-ai/sdk";
-
+import {
+  extractMessageRoleFromEvent,
+  extractSessionIDFromEvent,
+  isRecord,
+} from "../workflow-core/event-utils";
 import {
   isAbortLikeError,
   isLastAssistantMessageAborted,
@@ -32,30 +36,6 @@ interface OrchestratorArgs {
 
 const NO_OP = (_error: unknown): undefined => {
   return undefined;
-};
-
-const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === "object" && value !== null;
-};
-
-const extractSessionID = (event: Event): string | undefined => {
-  if (!isRecord(event.properties)) {
-    return undefined;
-  }
-  const properties = event.properties as Record<string, unknown>;
-
-  const fromProperties = properties.sessionID;
-  if (typeof fromProperties === "string") {
-    return fromProperties;
-  }
-
-  const info = properties.info;
-  if (!isRecord(info)) {
-    return undefined;
-  }
-
-  const fromInfo = info.sessionID ?? info.id;
-  return typeof fromInfo === "string" ? fromInfo : undefined;
 };
 
 const extractResolvedInfo = (messages: PromptMessage[]): SessionAgentInfo => {
@@ -95,20 +75,6 @@ const extractResolvedInfo = (messages: PromptMessage[]): SessionAgentInfo => {
   }
 
   return {};
-};
-
-const extractMessageRole = (event: Event): string | undefined => {
-  if (!isRecord(event.properties)) {
-    return undefined;
-  }
-  const properties = event.properties as Record<string, unknown>;
-
-  const info = properties.info;
-  if (!isRecord(info)) {
-    return undefined;
-  }
-
-  return typeof info.role === "string" ? info.role : undefined;
 };
 
 const extractUserText = (parts: Part[]): string => {
@@ -314,7 +280,7 @@ export const createTodoEnforcerOrchestrator = ({
     sessionID: string,
     event: Event
   ): boolean => {
-    const role = extractMessageRole(event);
+    const role = extractMessageRoleFromEvent(event);
     if (role !== "user") {
       return false;
     }
@@ -332,7 +298,7 @@ export const createTodoEnforcerOrchestrator = ({
     }
 
     const { event } = input;
-    const sessionID = extractSessionID(event);
+    const sessionID = extractSessionIDFromEvent(event);
     if (!sessionID) {
       return;
     }

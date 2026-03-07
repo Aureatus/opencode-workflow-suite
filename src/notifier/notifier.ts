@@ -6,6 +6,10 @@ import type { Event } from "@opencode-ai/sdk";
 
 import { isAbortLikeError } from "../todo-enforcer/abort-detection";
 import type { TodoEnforcerLifecycleEvent } from "../todo-enforcer/lifecycle";
+import {
+  extractSessionIDFromEvent,
+  isPermissionEvent,
+} from "../workflow-core/event-utils";
 import type {
   WorkflowNotificationEvent,
   WorkflowNotifierConfig,
@@ -30,32 +34,68 @@ interface IdleTracker {
   timer?: ReturnType<typeof setTimeout>;
 }
 
+interface CommandResult {
+  code: number;
+  stdout: string;
+  stderr: string;
+}
+
+const CLOCK_PATTERN = /^(\d{2}):(\d{2})$/;
+
 const NO_OP = (_error: unknown): undefined => {
   return undefined;
 };
 
-const isRecord = (value: unknown): value is Record<string, unknown> => {
-  return typeof value === "object" && value !== null;
+const parseClockMinutes = (value: string): number | undefined => {
+  const match = CLOCK_PATTERN.exec(value.trim());
+  if (!match) {
+    return undefined;
+  }
+
+  const hours = Number.parseInt(match[1], 10);
+  const minutes = Number.parseInt(match[2], 10);
+  if (
+    !(Number.isInteger(hours) && Number.isInteger(minutes)) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return undefined;
+  }
+
+  return hours * 60 + minutes;
 };
 
-const extractSessionIDFromEvent = (event: Event): string | undefined => {
-  if (!isRecord(event.properties)) {
-    return undefined;
-  }
-  const properties = event.properties as Record<string, unknown>;
+const runCommandWithOutput = async (
+  command: string,
+  args: string[]
+): Promise<CommandResult> => {
+  return await new Promise<CommandResult>((resolve) => {
+    const child = spawn(command, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
 
-  const fromProperties = properties.sessionID;
-  if (typeof fromProperties === "string") {
-    return fromProperties;
-  }
+    let stdout = "";
+    let stderr = "";
 
-  const info = properties.info;
-  if (!isRecord(info)) {
-    return undefined;
-  }
-
-  const fromInfo = info.sessionID ?? info.id;
-  return typeof fromInfo === "string" ? fromInfo : undefined;
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", () => {
+      resolve({ code: 1, stderr: "spawn error", stdout: "" });
+    });
+    child.on("close", (code) => {
+      resolve({
+        code: code ?? 1,
+        stdout: stdout.trim(),
+        stderr: stderr.trim(),
+      });
+    });
+  });
 };
 
 const clearTimer = (tracker: IdleTracker): void => {
@@ -63,6 +103,74 @@ const clearTimer = (tracker: IdleTracker): void => {
     clearTimeout(tracker.timer);
     tracker.timer = undefined;
   }
+};
+
+const shouldNotifyForEvent = (
+  config: WorkflowNotifierConfig,
+  eventType: WorkflowNotificationEvent
+): boolean => {
+  switch (eventType) {
+    case "terminal_ready":
+      return config.events.terminalReady;
+    case "session_paused":
+      return config.events.paused;
+    case "enforcer_failure":
+      return config.events.enforcerFailure;
+    case "error":
+      return config.events.error;
+    case "permission":
+      return config.events.permission;
+    case "question":
+      return config.events.question;
+    default:
+      return true;
+  }
+};
+
+const getNotificationMessage = (
+  eventType: WorkflowNotificationEvent,
+  sessionTitle: string,
+  reason?: string
+): string => {
+  switch (eventType) {
+    case "terminal_ready":
+      return `Session ready: ${sessionTitle}`;
+    case "session_paused":
+      return `Continuation paused for ${sessionTitle}`;
+    case "enforcer_failure":
+      return `Continuation failed repeatedly for ${sessionTitle}`;
+    case "error":
+      return `Session error in ${sessionTitle}`;
+    case "permission":
+      return `Permission required in ${sessionTitle}`;
+    case "question":
+      return `Question requires input in ${sessionTitle}`;
+    default:
+      return reason ?? `Event ${eventType} in ${sessionTitle}`;
+  }
+};
+
+const isWithinQuietHours = (
+  config: WorkflowNotifierConfig,
+  nowEpochMs: number
+): boolean => {
+  if (!config.quietHours.enabled) {
+    return false;
+  }
+
+  const start = parseClockMinutes(config.quietHours.start);
+  const end = parseClockMinutes(config.quietHours.end);
+  if (start === undefined || end === undefined || start === end) {
+    return false;
+  }
+
+  const now = new Date(nowEpochMs);
+  const current = now.getHours() * 60 + now.getMinutes();
+  if (start < end) {
+    return current >= start && current < end;
+  }
+
+  return current >= start || current < end;
 };
 
 export const createWorkflowNotifier = ({
@@ -111,49 +219,38 @@ export const createWorkflowNotifier = ({
     return sessionID;
   };
 
-  const canNotify = (eventType: WorkflowNotificationEvent): boolean => {
-    switch (eventType) {
-      case "terminal_ready":
-        return config.events.terminalReady;
-      case "session_paused":
-        return config.events.paused;
-      case "enforcer_failure":
-        return config.events.enforcerFailure;
-      case "error":
-        return config.events.error;
-      case "permission":
-        return config.events.permission;
-      case "question":
-        return config.events.question;
-      default:
-        return true;
+  const isTerminalFocused = async (): Promise<boolean> => {
+    if (!config.suppressWhenFocused) {
+      return false;
     }
+
+    if (config.focusCommand.enabled && config.focusCommand.path.length > 0) {
+      const result = await runCommandWithOutput(
+        config.focusCommand.path,
+        config.focusCommand.args
+      );
+      return result.code === 0;
+    }
+
+    if (process.platform !== "linux") {
+      return false;
+    }
+
+    const result = await runCommandWithOutput("xdotool", [
+      "getactivewindow",
+      "getwindowname",
+    ]);
+    if (result.code !== 0 || result.stdout.length === 0) {
+      return false;
+    }
+
+    const title = result.stdout.toLowerCase();
+    return config.focusTitleHints.some((hint) =>
+      title.includes(hint.toLowerCase())
+    );
   };
 
-  const resolveMessage = (
-    eventType: WorkflowNotificationEvent,
-    sessionTitle: string,
-    reason?: string
-  ): string => {
-    switch (eventType) {
-      case "terminal_ready":
-        return `Session ready: ${sessionTitle}`;
-      case "session_paused":
-        return `Continuation paused for ${sessionTitle}`;
-      case "enforcer_failure":
-        return `Continuation failed repeatedly for ${sessionTitle}`;
-      case "error":
-        return `Session error in ${sessionTitle}`;
-      case "permission":
-        return `Permission required in ${sessionTitle}`;
-      case "question":
-        return `Question requires input in ${sessionTitle}`;
-      default:
-        return reason ?? `Event ${eventType} in ${sessionTitle}`;
-    }
-  };
-
-  const executeCommand = async (args: {
+  const executeNotificationCommand = async (args: {
     eventType: WorkflowNotificationEvent;
     message: string;
     reason?: string;
@@ -201,7 +298,7 @@ export const createWorkflowNotifier = ({
     });
   };
 
-  const sendFallbackToast = async (args: {
+  const showFallbackToast = async (args: {
     eventType: WorkflowNotificationEvent;
     message: string;
   }): Promise<void> => {
@@ -229,27 +326,36 @@ export const createWorkflowNotifier = ({
     reason?: string;
     sessionID?: string;
   }): Promise<void> => {
-    if (!config.enabled) {
+    if (!(config.enabled && shouldNotifyForEvent(config, args.eventType))) {
       return;
     }
 
-    if (!canNotify(args.eventType)) {
+    const now = config.now();
+    if (isWithinQuietHours(config, now)) {
+      return;
+    }
+
+    if (await isTerminalFocused()) {
       return;
     }
 
     const sessionTitle = args.sessionID
       ? await getSessionTitle(args.sessionID)
       : "OpenCode session";
-    const message = resolveMessage(args.eventType, sessionTitle, args.reason);
+    const message = getNotificationMessage(
+      args.eventType,
+      sessionTitle,
+      args.reason
+    );
 
-    await executeCommand({
+    await executeNotificationCommand({
       eventType: args.eventType,
       message,
       reason: args.reason,
       sessionID: args.sessionID,
       sessionTitle,
     });
-    await sendFallbackToast({ eventType: args.eventType, message });
+    await showFallbackToast({ eventType: args.eventType, message });
   };
 
   const evaluateIdleOutcome = async (
@@ -266,7 +372,6 @@ export const createWorkflowNotifier = ({
     }
 
     const elapsed = config.now() - tracker.idleStartedAt;
-
     if (tracker.outcome === "unknown" && elapsed < config.maxWaitMs) {
       tracker.timer = setTimeout(() => {
         evaluateIdleOutcome(sessionID, idleVersion).catch(NO_OP);
@@ -360,34 +465,6 @@ export const createWorkflowNotifier = ({
     tracker.outcome = "continued";
   };
 
-  const handleSessionDeleted = (sessionID?: string): void => {
-    if (!sessionID) {
-      return;
-    }
-    clearSession(sessionID);
-  };
-
-  const handleSessionIdle = (sessionID?: string): void => {
-    if (!sessionID) {
-      return;
-    }
-    scheduleIdleEvaluation(sessionID);
-  };
-
-  const handleBusyEvent = (sessionID?: string): void => {
-    if (!sessionID) {
-      return;
-    }
-    markBusy(sessionID);
-  };
-
-  const isPermissionEvent = (event: Event): boolean => {
-    return (
-      event.type === "permission.updated" ||
-      (event as { type?: string }).type === "permission.asked"
-    );
-  };
-
   const onEvent = async (input: { event: Event }): Promise<void> => {
     if (!config.enabled) {
       return;
@@ -398,17 +475,23 @@ export const createWorkflowNotifier = ({
 
     switch (event.type) {
       case "session.deleted": {
-        handleSessionDeleted(sessionID);
+        if (sessionID) {
+          clearSession(sessionID);
+        }
         return;
       }
       case "session.idle": {
-        handleSessionIdle(sessionID);
+        if (sessionID) {
+          scheduleIdleEvaluation(sessionID);
+        }
         return;
       }
       case "session.status":
       case "message.updated":
       case "message.part.updated": {
-        handleBusyEvent(sessionID);
+        if (sessionID) {
+          markBusy(sessionID);
+        }
         return;
       }
       case "session.error": {

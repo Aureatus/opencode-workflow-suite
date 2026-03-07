@@ -13,6 +13,13 @@ export interface WorkflowNotifierConfig {
   pollMs: number;
   cooldownMs: number;
   showToastFallback: boolean;
+  suppressWhenFocused: boolean;
+  focusTitleHints: string[];
+  quietHours: {
+    enabled: boolean;
+    start: string;
+    end: string;
+  };
   events: {
     terminalReady: boolean;
     paused: boolean;
@@ -22,6 +29,11 @@ export interface WorkflowNotifierConfig {
     question: boolean;
   };
   command: {
+    enabled: boolean;
+    path: string;
+    args: string[];
+  };
+  focusCommand: {
     enabled: boolean;
     path: string;
     args: string[];

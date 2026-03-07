@@ -102,5 +102,6 @@ jobs:
 
       - name: Run E2E
         env:
-          OPENCODE_TODO_ENFORCER_E2E_MAX_ATTEMPTS: "2"
+          OPENCODE_WORKFLOW_SUITE_E2E_MAX_ATTEMPTS: "2"
+          OPENCODE_WORKFLOW_SUITE_E2E_STRICT: "true"
         run: bun run test:e2e

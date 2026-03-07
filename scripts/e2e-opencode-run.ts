@@ -19,7 +19,7 @@ interface CommandResult {
 }
 
 interface TelemetryEvent {
-  event: "todo_enforcer";
+  event: "workflow_suite" | "todo_enforcer";
   kind: string;
   session_id?: string;
   reason?: string;
@@ -49,10 +49,13 @@ const E2E_NPM_SANDBOX_DIRECTORY = path.join(
 const COMMAND_TIMEOUT_MS = 180_000;
 const COMMAND_RETRY_DELAY_MS = 5000;
 const MAX_COMMAND_ATTEMPTS = Number.parseInt(
-  process.env.OPENCODE_TODO_ENFORCER_E2E_MAX_ATTEMPTS ?? "2",
+  process.env.OPENCODE_WORKFLOW_SUITE_E2E_MAX_ATTEMPTS ??
+    process.env.OPENCODE_TODO_ENFORCER_E2E_MAX_ATTEMPTS ??
+    "2",
   10
 );
 const STRICT_TELEMETRY =
+  process.env.OPENCODE_WORKFLOW_SUITE_E2E_STRICT === "true" ||
   process.env.OPENCODE_TODO_ENFORCER_E2E_STRICT === "true";
 const RETRYABLE_FAILURE_PATTERN =
   /timed out|timeout|rate limit|429|502|503|504|econnreset|etimedout|enotfound|eai_again|network/i;
@@ -99,6 +102,7 @@ async function buildRunEnvironment(
         OPENCODE_CONFIG_CONTENT: JSON.stringify({
           plugin: ["opencode-workflow-suite"],
         }),
+        OPENCODE_WORKFLOW_SUITE_STOP_COMMAND: E2E_STOP_COMMAND,
         OPENCODE_TODO_ENFORCER_STOP_COMMAND: E2E_STOP_COMMAND,
       },
     };
@@ -112,6 +116,7 @@ async function buildRunEnvironment(
       OPENCODE_CONFIG_CONTENT: JSON.stringify({
         plugin: [localPluginSpec],
       }),
+      OPENCODE_WORKFLOW_SUITE_STOP_COMMAND: E2E_STOP_COMMAND,
       OPENCODE_TODO_ENFORCER_STOP_COMMAND: E2E_STOP_COMMAND,
     },
   };
@@ -130,6 +135,8 @@ function runOpencodeCommand(
       env: {
         ...process.env,
         ...runEnvironment.envOverrides,
+        OPENCODE_WORKFLOW_SUITE_TELEMETRY_PATH: telemetryPath,
+        OPENCODE_WORKFLOW_SUITE_TELEMETRY_CONTEXT: context,
         OPENCODE_TODO_ENFORCER_TELEMETRY_PATH: telemetryPath,
         OPENCODE_TODO_ENFORCER_TELEMETRY_CONTEXT: context,
       },
@@ -177,7 +184,7 @@ function parseTelemetry(raw: string): TelemetryEvent[] {
   const events: TelemetryEvent[] = [];
   for (const line of lines) {
     const parsed = JSON.parse(line) as TelemetryEvent;
-    if (parsed.event === "todo_enforcer") {
+    if (parsed.event === "todo_enforcer" || parsed.event === "workflow_suite") {
       events.push(parsed);
     }
   }
@@ -370,7 +377,9 @@ async function runCaseWithRetry(args: {
 
 async function main(): Promise<void> {
   const mode = parseMode(process.argv.slice(2));
-  const keep = process.env.OPENCODE_TODO_ENFORCER_E2E_KEEP === "true";
+  const keep =
+    process.env.OPENCODE_WORKFLOW_SUITE_E2E_KEEP === "true" ||
+    process.env.OPENCODE_TODO_ENFORCER_E2E_KEEP === "true";
   const projectDirectory = process.cwd();
   const runEnvironment = await buildRunEnvironment(mode, projectDirectory);
   const cases = buildCases();

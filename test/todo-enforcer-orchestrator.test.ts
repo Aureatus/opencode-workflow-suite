@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, jest, test } from "bun:test";
 import type { PluginInput } from "@opencode-ai/plugin";
 import type { Event, Part, Todo } from "@opencode-ai/sdk";
 
@@ -6,10 +6,14 @@ import { createTodoEnforcerConfig } from "../src/todo-enforcer/config";
 import { createTodoEnforcerOrchestrator } from "../src/todo-enforcer/orchestrator";
 import { createStopStateStore } from "../src/todo-enforcer/stop-state";
 
+const flushAsync = async (): Promise<void> => {
+  await Promise.resolve();
+  await Promise.resolve();
+};
+
 const sleep = async (ms: number): Promise<void> => {
-  await new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
+  jest.advanceTimersByTime(ms);
+  await flushAsync();
 };
 
 const pendingTodo = (): Todo => {
@@ -98,6 +102,15 @@ const idleEvent = (sessionID = "session-1"): Event => {
 };
 
 describe("todo enforcer orchestrator", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
+  });
+
   test("injects continuation after idle countdown", async () => {
     const harness = createHarness();
     const config = createTodoEnforcerConfig({

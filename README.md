@@ -73,7 +73,29 @@ Command placeholders:
 
 Env override:
 
-- `OPENCODE_WORKFLOW_NOTIFY_COMMAND=/path/to/script-or-binary`
+- `OPENCODE_WORKFLOW_SUITE_NOTIFY_COMMAND=/path/to/script-or-binary`
+
+Optional notifier controls:
+
+- `suppressWhenFocused: true` to suppress notifications while terminal window is focused
+- `focusCommand` to provide custom focus detection command (exit code `0` means focused)
+- `quietHours` (`start`/`end` in `HH:MM`) to suppress notifications during quiet windows
+
+```ts
+notifier: {
+  suppressWhenFocused: true,
+  quietHours: {
+    enabled: true,
+    start: "22:00",
+    end: "08:00",
+  },
+  focusCommand: {
+    enabled: true,
+    path: "/usr/local/bin/is-terminal-focused",
+    args: [],
+  },
+}
+```
 
 ## Todo enforcer defaults
 
@@ -103,3 +125,29 @@ bun run test:e2e:npm
 - `bun run release:patch|minor|major|beta:first|beta:next`
 
 See `RELEASING.md` for full workflow details.
+
+## Migration from opencode-todo-enforcer
+
+- Replace plugin entry:
+  - from `opencode-todo-enforcer`
+  - to `opencode-workflow-suite`
+- Existing factory usage keeps working through compatibility aliases:
+  - `TodoEnforcerPlugin`
+  - `createTodoEnforcerPlugin`
+  - legacy top-level enforcer options in `createTodoEnforcerPlugin(...)`
+
+Primary env vars are now:
+
+- `OPENCODE_WORKFLOW_SUITE_STOP_COMMAND`
+- `OPENCODE_WORKFLOW_SUITE_NOTIFY_COMMAND`
+- `OPENCODE_WORKFLOW_SUITE_TELEMETRY_PATH`
+- `OPENCODE_WORKFLOW_SUITE_TELEMETRY_CONTEXT`
+- `OPENCODE_WORKFLOW_SUITE_TELEMETRY`
+- `OPENCODE_WORKFLOW_SUITE_E2E_MAX_ATTEMPTS`
+- `OPENCODE_WORKFLOW_SUITE_E2E_STRICT`
+
+Legacy `OPENCODE_TODO_ENFORCER_*` and `OPENCODE_WORKFLOW_NOTIFY_COMMAND` are still supported for compatibility.
+
+Deprecation policy:
+
+- compatibility aliases and legacy env vars are planned for removal in `v1.0.0`

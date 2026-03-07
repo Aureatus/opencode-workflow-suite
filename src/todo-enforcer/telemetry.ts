@@ -10,7 +10,7 @@ interface TelemetryEventInput {
 }
 
 interface TelemetryEventRecord {
-  event: "todo_enforcer";
+  event: "workflow_suite" | "todo_enforcer";
   kind: string;
   session_id?: string;
   reason?: string;
@@ -36,7 +36,9 @@ const swallowError = (_error: unknown): undefined => {
 };
 
 const resolveTelemetryPath = (): string => {
-  const customPath = process.env.OPENCODE_TODO_ENFORCER_TELEMETRY_PATH?.trim();
+  const customPath =
+    process.env.OPENCODE_WORKFLOW_SUITE_TELEMETRY_PATH?.trim() ??
+    process.env.OPENCODE_TODO_ENFORCER_TELEMETRY_PATH?.trim();
   if (customPath) {
     return customPath;
   }
@@ -46,9 +48,13 @@ const resolveTelemetryPath = (): string => {
 export const createTodoEnforcerTelemetry = (): {
   log: (entry: TelemetryEventInput) => void;
 } => {
-  const disabled = process.env.OPENCODE_TODO_ENFORCER_TELEMETRY === "false";
+  const disabled =
+    process.env.OPENCODE_WORKFLOW_SUITE_TELEMETRY === "false" ||
+    process.env.OPENCODE_TODO_ENFORCER_TELEMETRY === "false";
   const telemetryPath = resolveTelemetryPath();
-  const context = process.env.OPENCODE_TODO_ENFORCER_TELEMETRY_CONTEXT?.trim();
+  const context =
+    process.env.OPENCODE_WORKFLOW_SUITE_TELEMETRY_CONTEXT?.trim() ??
+    process.env.OPENCODE_TODO_ENFORCER_TELEMETRY_CONTEXT?.trim();
 
   let initialized = false;
 
@@ -58,7 +64,7 @@ export const createTodoEnforcerTelemetry = (): {
     }
 
     const payload: TelemetryEventRecord = {
-      event: "todo_enforcer",
+      event: "workflow_suite",
       kind: entry.kind,
       session_id: entry.sessionID,
       reason: entry.reason,
