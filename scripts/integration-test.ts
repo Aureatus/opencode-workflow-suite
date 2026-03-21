@@ -111,6 +111,14 @@ const run = async (): Promise<void> => {
     typeof hooks["chat.message"] === "function",
     "chat.message hook should exist"
   );
+  ensure(
+    typeof hooks.tool?.todo_enforcer_debug_ping === "object",
+    "todo_enforcer_debug_ping tool should exist"
+  );
+  ensure(
+    typeof hooks.tool?.repo_ensure_local === "object",
+    "repo_ensure_local tool should exist"
+  );
 
   await hooks.event?.({ event: idleEvent() });
   await sleep(25);

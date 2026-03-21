@@ -4,6 +4,7 @@ OpenCode workflow plugin that combines:
 
 - todo continuation enforcement on idle sessions
 - notifier gating that waits for enforcer outcomes before signaling "ready"
+- external repo preparation via `repo_ensure_local`
 
 ## Install
 
@@ -107,6 +108,26 @@ notifier: {
 - Tool: `todo_enforcer_debug_ping`
 - Writes: `<session-directory>/.opencode-workflow-suite-debug-pings.jsonl`
 
+## Repo tool
+
+- Tool: `repo_ensure_local`
+- Purpose: clone/update external repositories into a deterministic local root and return `local_path` for immediate `Read`/`Glob`/`Grep`/`Bash` usage
+
+Arguments:
+
+- `repo` (required): `https://host/owner/repo(.git)`, `git@host:owner/repo.git` (with `allow_ssh=true`), `host/owner/repo`, or `owner/repo`
+- `ref` (optional): branch/tag/SHA to checkout after clone/fetch
+- `depth` (optional): shallow clone depth
+- `update_mode` (optional): `ff-only` (default), `fetch-only`, `reset-clean`
+- `allow_ssh` (optional): allow SSH-style remote input
+- `auth_mode` (optional): `auto` (default), `https`, `ssh`
+
+Repo env vars:
+
+- `OPENCODE_REPO_CLONE_ROOT` (env-only absolute path override; default `~/.opencode/repos`)
+- `OPENCODE_REPO_ALLOW_SSH=true`
+- `OPENCODE_REPO_TELEMETRY_PATH`
+
 ## Development
 
 ```bash
@@ -148,6 +169,12 @@ Primary env vars are now:
 - `OPENCODE_WORKFLOW_SUITE_E2E_MAX_ATTEMPTS`
 - `OPENCODE_WORKFLOW_SUITE_E2E_STRICT`
 - `OPENCODE_WORKFLOW_SUITE_E2E_NPM_SANDBOX`
+
+Repo tool env vars:
+
+- `OPENCODE_REPO_CLONE_ROOT`
+- `OPENCODE_REPO_ALLOW_SSH`
+- `OPENCODE_REPO_TELEMETRY_PATH`
 
 Legacy `OPENCODE_TODO_ENFORCER_*` and `OPENCODE_WORKFLOW_NOTIFY_COMMAND` are still supported for compatibility.
 

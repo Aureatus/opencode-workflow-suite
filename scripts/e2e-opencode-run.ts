@@ -321,8 +321,7 @@ function assertNotifierSuppressedCase(input: {
   const { events } = input;
   const suppressed = events.some(
     (entry) =>
-      entry.kind === "notifier_suppressed" &&
-      entry.reason === "quiet-hours"
+      entry.kind === "notifier_suppressed" && entry.reason === "quiet-hours"
   );
 
   ensure(

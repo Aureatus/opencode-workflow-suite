@@ -8,6 +8,7 @@ This file is for coding agents working in this repository.
 
 - Todo continuation enforcement for idle sessions
 - Notifier gating that waits for enforcer outcomes before signaling ready
+- External repo preparation via `repo_ensure_local`
 
 Primary entrypoints:
 
@@ -15,6 +16,7 @@ Primary entrypoints:
 - `src/todo-enforcer/*` (idle guards, countdown, continuation injection)
 - `src/notifier/*` (notification logic and suppression)
 - `src/workflow-core/event-utils.ts` (shared event parsing contract)
+- `src/repo-local/*` (`repo_ensure_local` tool and git/auth/path utilities)
 
 ## Compatibility Contract (Do Not Break)
 
@@ -80,6 +82,8 @@ bun run check
 OPENCODE_WORKFLOW_SUITE_E2E_STRICT=true bun run test:e2e
 bun run test:e2e:npm
 ```
+
+Repo-local unit coverage is in `test/repo-local-*.test.ts`; keep these updated when changing repo URL parsing, auth plan, clone root resolution, or git error mapping.
 
 If source code changes, ensure build output is refreshed:
 

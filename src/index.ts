@@ -4,6 +4,7 @@ import {
   type WorkflowNotifierOptions,
 } from "./notifier/config";
 import { createWorkflowNotifier } from "./notifier/notifier";
+import { repoEnsureLocalTool } from "./repo-local/tools/repo-ensure-local";
 import {
   createTodoEnforcerConfig,
   type TodoEnforcerOptions,
@@ -71,6 +72,7 @@ const createHooks = (
   return {
     tool: {
       todo_enforcer_debug_ping: todoEnforcerDebugPingTool,
+      repo_ensure_local: repoEnsureLocalTool,
     },
     event: async (payload: {
       event: Parameters<typeof orchestrator.onEvent>[0]["event"];
