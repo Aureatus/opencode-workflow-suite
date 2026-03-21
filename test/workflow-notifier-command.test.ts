@@ -210,7 +210,7 @@ describe("workflow notifier command behavior", () => {
     notifier.dispose();
   });
 
-  test("focus command nonzero exit falls back to sending notification", async () => {
+  test("focus options do not suppress notifications", async () => {
     const harness = createHarness();
     const { calls, spawnMock } = createSpawnMock({
       "focus-cmd": { code: 1 },
@@ -242,7 +242,7 @@ describe("workflow notifier command behavior", () => {
       } as Event,
     });
 
-    expect(calls.some((call) => call.command === "focus-cmd")).toBe(true);
+    expect(calls.some((call) => call.command === "focus-cmd")).toBe(false);
     expect(calls.some((call) => call.command === "notify-cmd")).toBe(true);
     notifier.dispose();
   });

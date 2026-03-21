@@ -77,22 +77,19 @@ Env override:
 
 Optional notifier controls:
 
-- `suppressWhenFocused: true` to suppress notifications while terminal window is focused
-- `focusCommand` to provide custom focus detection command (exit code `0` means focused)
 - `quietHours` (`start`/`end` in `HH:MM`) to suppress notifications during quiet windows
+
+Focus-note:
+
+- notifications are now delivered even when the current terminal/session is focused
+- `suppressWhenFocused` and `focusCommand` remain accepted for compatibility but do not suppress delivery
 
 ```ts
 notifier: {
-  suppressWhenFocused: true,
   quietHours: {
     enabled: true,
     start: "22:00",
     end: "08:00",
-  },
-  focusCommand: {
-    enabled: true,
-    path: "/usr/local/bin/is-terminal-focused",
-    args: [],
   },
 }
 ```
@@ -118,6 +115,11 @@ bun run check
 bun run test:e2e
 bun run test:e2e:npm
 ```
+
+E2E notes:
+
+- `OPENCODE_CONFIG_CONTENT` merges with existing OpenCode config; for deterministic runs, the E2E harness isolates config via `XDG_CONFIG_HOME`
+- `OPENCODE_WORKFLOW_SUITE_E2E_NPM_SANDBOX` can override npm-mode sandbox path (must be absolute)
 
 ## Releasing
 
@@ -145,6 +147,7 @@ Primary env vars are now:
 - `OPENCODE_WORKFLOW_SUITE_TELEMETRY`
 - `OPENCODE_WORKFLOW_SUITE_E2E_MAX_ATTEMPTS`
 - `OPENCODE_WORKFLOW_SUITE_E2E_STRICT`
+- `OPENCODE_WORKFLOW_SUITE_E2E_NPM_SANDBOX`
 
 Legacy `OPENCODE_TODO_ENFORCER_*` and `OPENCODE_WORKFLOW_NOTIFY_COMMAND` are still supported for compatibility.
 

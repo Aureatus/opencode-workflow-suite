@@ -166,7 +166,7 @@ describe("workflow notifier", () => {
     notifier.dispose();
   });
 
-  test("suppresses notifications when focus command reports focused", async () => {
+  test("still notifies when focus command reports focused", async () => {
     const harness = createHarness();
     const notifier = createWorkflowNotifier({
       ctx: harness.ctx,
@@ -190,7 +190,8 @@ describe("workflow notifier", () => {
       } as Event,
     });
 
-    expect(harness.toastCalls).toHaveLength(0);
+    expect(harness.toastCalls).toHaveLength(1);
+    expect(harness.toastCalls[0]?.message).toContain("Permission required");
     notifier.dispose();
   });
 

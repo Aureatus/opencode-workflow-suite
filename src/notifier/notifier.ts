@@ -36,12 +36,6 @@ interface IdleTracker {
   timer?: ReturnType<typeof setTimeout>;
 }
 
-interface CommandResult {
-  code: number;
-  stdout: string;
-  stderr: string;
-}
-
 const CLOCK_PATTERN = /^(\d{2}):(\d{2})$/;
 
 const NO_OP = (_error: unknown): undefined => {
@@ -67,38 +61,6 @@ const parseClockMinutes = (value: string): number | undefined => {
   }
 
   return hours * 60 + minutes;
-};
-
-const runCommandWithOutput = async (
-  spawnProcess: typeof spawn,
-  command: string,
-  args: string[]
-): Promise<CommandResult> => {
-  return await new Promise<CommandResult>((resolve) => {
-    const child = spawnProcess(command, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString();
-    });
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString();
-    });
-    child.on("error", () => {
-      resolve({ code: 1, stderr: "spawn error", stdout: "" });
-    });
-    child.on("close", (code) => {
-      resolve({
-        code: code ?? 1,
-        stdout: stdout.trim(),
-        stderr: stderr.trim(),
-      });
-    });
-  });
 };
 
 const clearTimer = (tracker: IdleTracker): void => {
@@ -241,38 +203,6 @@ export const createWorkflowNotifier = ({
     return sessionID;
   };
 
-  const isTerminalFocused = async (): Promise<boolean> => {
-    if (!config.suppressWhenFocused) {
-      return false;
-    }
-
-    if (config.focusCommand.enabled && config.focusCommand.path.length > 0) {
-      const result = await runCommandWithOutput(
-        spawnFn,
-        config.focusCommand.path,
-        config.focusCommand.args
-      );
-      return result.code === 0;
-    }
-
-    if (process.platform !== "linux") {
-      return false;
-    }
-
-    const result = await runCommandWithOutput(spawnFn, "xdotool", [
-      "getactivewindow",
-      "getwindowname",
-    ]);
-    if (result.code !== 0 || result.stdout.length === 0) {
-      return false;
-    }
-
-    const title = result.stdout.toLowerCase();
-    return config.focusTitleHints.some((hint) =>
-      title.includes(hint.toLowerCase())
-    );
-  };
-
   const executeNotificationCommand = async (args: {
     eventType: WorkflowNotificationEvent;
     message: string;
@@ -359,16 +289,6 @@ export const createWorkflowNotifier = ({
         eventType: args.eventType,
         kind: "notifier_suppressed",
         reason: "quiet-hours",
-        sessionID: args.sessionID,
-      });
-      return;
-    }
-
-    if (await isTerminalFocused()) {
-      logNotifierEvent({
-        eventType: args.eventType,
-        kind: "notifier_suppressed",
-        reason: "focused",
         sessionID: args.sessionID,
       });
       return;

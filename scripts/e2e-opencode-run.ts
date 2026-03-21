@@ -84,6 +84,22 @@ const E2E_NPM_SANDBOX_DIRECTORY = path.join(
   "npm-e2e-sandbox"
 );
 
+const resolveNpmSandboxDirectory = (): string => {
+  const fromEnv =
+    process.env.OPENCODE_WORKFLOW_SUITE_E2E_NPM_SANDBOX?.trim() ?? "";
+  if (!fromEnv) {
+    return E2E_NPM_SANDBOX_DIRECTORY;
+  }
+
+  if (!path.isAbsolute(fromEnv)) {
+    throw new Error(
+      "OPENCODE_WORKFLOW_SUITE_E2E_NPM_SANDBOX must be an absolute path"
+    );
+  }
+
+  return fromEnv;
+};
+
 const COMMAND_TIMEOUT_MS = 180_000;
 const COMMAND_RETRY_DELAY_MS = 5000;
 const MAX_COMMAND_ATTEMPTS = Number.parseInt(
@@ -130,12 +146,13 @@ async function assertDistBuildExists(projectDirectory: string): Promise<void> {
 
 async function buildRunEnvironment(
   mode: E2EMode,
-  projectDirectory: string
+  projectDirectory: string,
+  npmSandboxDirectory: string
 ): Promise<RunEnvironment> {
   if (mode === "npm") {
-    await mkdir(E2E_NPM_SANDBOX_DIRECTORY, { recursive: true });
+    await mkdir(npmSandboxDirectory, { recursive: true });
     return {
-      cwd: E2E_NPM_SANDBOX_DIRECTORY,
+      cwd: npmSandboxDirectory,
       envOverrides: {
         OPENCODE_CONFIG_CONTENT: JSON.stringify({
           plugin: ["opencode-workflow-suite"],
@@ -305,7 +322,7 @@ function assertNotifierSuppressedCase(input: {
   const suppressed = events.some(
     (entry) =>
       entry.kind === "notifier_suppressed" &&
-      (entry.reason === "focused" || entry.reason === "quiet-hours")
+      entry.reason === "quiet-hours"
   );
 
   ensure(
@@ -452,7 +469,12 @@ async function main(): Promise<void> {
     process.env.OPENCODE_WORKFLOW_SUITE_E2E_KEEP === "true" ||
     process.env.OPENCODE_TODO_ENFORCER_E2E_KEEP === "true";
   const projectDirectory = process.cwd();
-  const runEnvironment = await buildRunEnvironment(mode, projectDirectory);
+  const npmSandboxDirectory = resolveNpmSandboxDirectory();
+  const runEnvironment = await buildRunEnvironment(
+    mode,
+    projectDirectory,
+    npmSandboxDirectory
+  );
   const cases = buildCases();
   const tempRoot = await mkdtemp(path.join(os.tmpdir(), "opencode-todo-e2e-"));
   const telemetryPath = path.join(tempRoot, "telemetry.jsonl");
