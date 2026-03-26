@@ -23,9 +23,7 @@ Notifier logic depends on these events; rename with care.
 ## Configuration
 
 - options are defined in `config.ts` (`TodoEnforcerOptions`)
-- stop command env precedence:
-  - `OPENCODE_WORKFLOW_SUITE_STOP_COMMAND`
-  - `OPENCODE_TODO_ENFORCER_STOP_COMMAND` (legacy)
+- stop command env: `OPENCODE_WORKFLOW_SUITE_STOP_COMMAND`
 
 ## Validation
 

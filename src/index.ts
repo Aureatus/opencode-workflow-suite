@@ -23,34 +23,6 @@ export interface TodoWorkflowOptions {
 
 export type WorkflowSuiteOptions = TodoWorkflowOptions;
 
-type LegacyOrWorkflowOptions = TodoWorkflowOptions | TodoEnforcerOptions;
-
-const isWorkflowOptions = (
-  value: LegacyOrWorkflowOptions | undefined
-): value is TodoWorkflowOptions => {
-  if (!value) {
-    return false;
-  }
-
-  return "todoEnforcer" in value || "notifier" in value;
-};
-
-const normalizeOptions = (
-  options?: LegacyOrWorkflowOptions
-): TodoWorkflowOptions | undefined => {
-  if (!options) {
-    return undefined;
-  }
-
-  if (isWorkflowOptions(options)) {
-    return options;
-  }
-
-  return {
-    todoEnforcer: options,
-  };
-};
-
 const createHooks = (
   input: Parameters<Plugin>[0],
   options?: TodoWorkflowOptions
@@ -112,10 +84,10 @@ export const WorkflowSuitePlugin: Plugin = (input) => {
 };
 
 export const createWorkflowSuitePlugin = (
-  options?: LegacyOrWorkflowOptions
+  options?: TodoWorkflowOptions
 ): Plugin => {
   return (input) => {
-    return Promise.resolve(createHooks(input, normalizeOptions(options)));
+    return Promise.resolve(createHooks(input, options));
   };
 };
 

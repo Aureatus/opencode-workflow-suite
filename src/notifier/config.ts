@@ -83,7 +83,6 @@ const resolveNotifyCommandPath = (
   return (
     options?.command?.path ??
     envValue("OPENCODE_WORKFLOW_SUITE_NOTIFY_COMMAND") ??
-    envValue("OPENCODE_WORKFLOW_NOTIFY_COMMAND") ??
     ""
   );
 };

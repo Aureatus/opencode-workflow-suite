@@ -11,7 +11,7 @@ This module controls workflow notification delivery.
 ## Focus behavior
 
 - notifications are delivered even when the terminal/session is focused
-- `suppressWhenFocused` and `focusCommand` are accepted for compatibility but do not suppress delivery
+- `suppressWhenFocused` and `focusCommand` do not suppress delivery
 
 ## Configuration notes
 

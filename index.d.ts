@@ -68,7 +68,7 @@ export type WorkflowSuiteOptions = TodoWorkflowOptions;
 
 export declare const WorkflowSuitePlugin: Plugin;
 export declare const createWorkflowSuitePlugin: (
-  options?: TodoWorkflowOptions | TodoEnforcerOptions
+  options?: TodoWorkflowOptions
 ) => Plugin;
 
 export default WorkflowSuitePlugin;

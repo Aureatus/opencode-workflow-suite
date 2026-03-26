@@ -85,7 +85,7 @@ Optional notifier controls:
 Focus-note:
 
 - notifications are now delivered even when the current terminal/session is focused
-- `suppressWhenFocused` and `focusCommand` remain accepted for compatibility but do not suppress delivery
+- `suppressWhenFocused` and `focusCommand` do not suppress delivery
 
 ```ts
 notifier: {
@@ -152,13 +152,6 @@ E2E notes:
 
 See `RELEASING.md` for full workflow details.
 
-## Migration from opencode-todo-enforcer
-
-- Replace plugin entry:
-  - from `opencode-todo-enforcer`
-  - to `opencode-workflow-suite`
-- Use `createWorkflowSuitePlugin(...)` or `WorkflowSuitePlugin` exports.
-
 Primary env vars are now:
 
 - `OPENCODE_WORKFLOW_SUITE_STOP_COMMAND`
@@ -175,9 +168,3 @@ Repo tool env vars:
 - `OPENCODE_REPO_CLONE_ROOT`
 - `OPENCODE_REPO_ALLOW_SSH`
 - `OPENCODE_REPO_TELEMETRY_PATH`
-
-Legacy `OPENCODE_TODO_ENFORCER_*` and `OPENCODE_WORKFLOW_NOTIFY_COMMAND` are still supported for compatibility.
-
-Deprecation policy:
-
-- legacy `OPENCODE_TODO_ENFORCER_*` and `OPENCODE_WORKFLOW_NOTIFY_COMMAND` env vars remain compatibility-only and may be removed in a future major release.

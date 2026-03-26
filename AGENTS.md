@@ -15,7 +15,7 @@ If a change is isolated to one module, also follow the closest scoped guide:
 - Public exports in `src/index.ts` / `index.d.ts`:
   - `WorkflowSuitePlugin`
   - `createWorkflowSuitePlugin`
-- Workflow-suite env names are primary; keep supported legacy env compatibility unless intentionally planned for a breaking release.
+- Workflow-suite env names are the only supported env contract for workflow behavior.
 - Notifier telemetry kinds stay stable: `notifier_sent`, `notifier_suppressed`.
 - Enforcer lifecycle kinds used by tests/E2E stay stable: `chat_message_seen`, `idle_seen`, `stop_set_chat`, `debug_ping_tool`.
 - Repo-local tool compatibility stays stable (`repo_ensure_local` args/result field names).
@@ -23,7 +23,7 @@ If a change is isolated to one module, also follow the closest scoped guide:
 ## Do Not
 
 - Do not silently rename event kinds, tool args, or output fields without updating tests/docs in the same change.
-- Do not remove supported legacy env compatibility without explicit migration intent.
+- Do not silently add compatibility aliases or fallback env names.
 
 ## Completion Gate
 
