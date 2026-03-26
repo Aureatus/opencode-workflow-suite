@@ -40,11 +40,6 @@ import {
 } from "opencode-workflow-suite";
 ```
 
-Legacy aliases are kept for compatibility:
-
-- `TodoEnforcerPlugin`
-- `createTodoEnforcerPlugin`
-
 ## Configuration
 
 ```ts
@@ -162,10 +157,7 @@ See `RELEASING.md` for full workflow details.
 - Replace plugin entry:
   - from `opencode-todo-enforcer`
   - to `opencode-workflow-suite`
-- Existing factory usage keeps working through compatibility aliases:
-  - `TodoEnforcerPlugin`
-  - `createTodoEnforcerPlugin`
-  - legacy top-level enforcer options in `createTodoEnforcerPlugin(...)`
+- Use `createWorkflowSuitePlugin(...)` or `WorkflowSuitePlugin` exports.
 
 Primary env vars are now:
 
@@ -188,4 +180,4 @@ Legacy `OPENCODE_TODO_ENFORCER_*` and `OPENCODE_WORKFLOW_NOTIFY_COMMAND` are sti
 
 Deprecation policy:
 
-- compatibility aliases and legacy env vars are planned for removal in `v1.0.0`
+- legacy `OPENCODE_TODO_ENFORCER_*` and `OPENCODE_WORKFLOW_NOTIFY_COMMAND` env vars remain compatibility-only and may be removed in a future major release.

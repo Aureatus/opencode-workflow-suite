@@ -1,7 +1,7 @@
 import type { PluginInput } from "@opencode-ai/plugin";
 import type { Event, Part, Todo } from "@opencode-ai/sdk";
 
-import { createTodoEnforcerPlugin } from "../src";
+import { createWorkflowSuitePlugin } from "../src";
 
 const sleep = async (ms: number): Promise<void> => {
   await new Promise((resolve) => {
@@ -98,11 +98,13 @@ const idleEvent = (): Event => {
 const run = async (): Promise<void> => {
   const harness = createHarness();
 
-  const pluginFactory = createTodoEnforcerPlugin({
-    countdownMs: 10,
-    countdownGraceMs: 5,
-    continuationCooldownMs: 120,
-    abortWindowMs: 30,
+  const pluginFactory = createWorkflowSuitePlugin({
+    todoEnforcer: {
+      countdownMs: 10,
+      countdownGraceMs: 5,
+      continuationCooldownMs: 120,
+      abortWindowMs: 30,
+    },
   });
   const hooks = await pluginFactory(harness.ctx);
 

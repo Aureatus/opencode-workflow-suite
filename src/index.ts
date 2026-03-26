@@ -119,7 +119,4 @@ export const createWorkflowSuitePlugin = (
   };
 };
 
-export const TodoEnforcerPlugin = WorkflowSuitePlugin;
-export const createTodoEnforcerPlugin = createWorkflowSuitePlugin;
-
 export default WorkflowSuitePlugin;

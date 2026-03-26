@@ -71,9 +71,4 @@ export declare const createWorkflowSuitePlugin: (
   options?: TodoWorkflowOptions | TodoEnforcerOptions
 ) => Plugin;
 
-export declare const TodoEnforcerPlugin: Plugin;
-export declare const createTodoEnforcerPlugin: (
-  options?: TodoWorkflowOptions | TodoEnforcerOptions
-) => Plugin;
-
 export default WorkflowSuitePlugin;
