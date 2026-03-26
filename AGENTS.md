@@ -1,121 +1,43 @@
 # Agent Guide: opencode-workflow-suite
 
-This file is for coding agents working in this repository.
+## Scope
 
-## What This Plugin Does
+This file applies to the whole repository.
 
-`opencode-workflow-suite` combines two behaviors:
+If a change is isolated to one module, also follow the closest scoped guide:
 
-- Todo continuation enforcement for idle sessions
-- Notifier gating that waits for enforcer outcomes before signaling ready
-- External repo preparation via `repo_ensure_local`
+- `src/todo-enforcer/AGENTS.md`
+- `src/notifier/AGENTS.md`
+- `src/repo-local/AGENTS.md`
 
-Primary entrypoints:
+## Must Preserve
 
-- `src/index.ts` (plugin wiring and compatibility aliases)
-- `src/todo-enforcer/*` (idle guards, countdown, continuation injection)
-- `src/notifier/*` (notification logic and suppression)
-- `src/workflow-core/event-utils.ts` (shared event parsing contract)
-- `src/repo-local/*` (`repo_ensure_local` tool and git/auth/path utilities)
+- Public exports in `src/index.ts` / `index.d.ts`:
+  - `WorkflowSuitePlugin`
+  - `createWorkflowSuitePlugin`
+  - `TodoEnforcerPlugin` (alias)
+  - `createTodoEnforcerPlugin` (alias)
+- Workflow-suite env names are primary; keep supported legacy env compatibility unless intentionally planned for a breaking release.
+- Notifier telemetry kinds stay stable: `notifier_sent`, `notifier_suppressed`.
+- Enforcer lifecycle kinds used by tests/E2E stay stable: `chat_message_seen`, `idle_seen`, `stop_set_chat`, `debug_ping_tool`.
+- Repo-local tool compatibility stays stable (`repo_ensure_local` args/result field names).
 
-## Compatibility Contract (Do Not Break)
+## Do Not
 
-Maintain these public exports in `src/index.ts` and `index.d.ts`:
+- Do not silently rename event kinds, tool args, or output fields without updating tests/docs in the same change.
+- Do not remove compatibility aliases/env support without explicit migration intent.
 
-- `WorkflowSuitePlugin`
-- `createWorkflowSuitePlugin`
-- `TodoEnforcerPlugin` (alias)
-- `createTodoEnforcerPlugin` (alias)
+## Completion Gate
 
-Keep workflow-suite env vars as the primary naming, while retaining legacy compatibility where already supported.
-
-## Telemetry and Event Contract
-
-Telemetry is written as JSONL via `src/todo-enforcer/telemetry.ts`.
-
-Expected event envelope fields:
-
-- `event` (`workflow_suite` or legacy-compatible values)
-- `kind`
-- `session_id`
-- `reason`
-- `context`
-- `timestamp`
-
-Important notifier kinds used by tests/E2E:
-
-- `notifier_sent`
-- `notifier_suppressed`
-
-Important enforcer kinds used by tests/E2E:
-
-- `chat_message_seen`
-- `idle_seen`
-- `stop_set_chat`
-- `debug_ping_tool`
-
-When changing event names or reasons, update unit tests and E2E assertions together.
-
-## E2E Rules and Pitfalls
-
-E2E runner: `scripts/e2e-opencode-run.ts`
-
-Key assumptions:
-
-- Local mode plugin spec must use an absolute file path (`pkg@file:/abs/path`).
-- E2E should isolate OpenCode config per case (`XDG_CONFIG_HOME`) to avoid user-global plugin interference.
-- Notifier suppression scenario is validated through telemetry (`notifier_suppressed`) and currently uses quiet-hours env controls in-case.
-- npm-mode E2E sandbox can be overridden only via `OPENCODE_WORKFLOW_SUITE_E2E_NPM_SANDBOX` (must be absolute).
-- Retry behavior exists for transient CLI/network failures; keep retries scoped and deterministic.
-
-## Notifier Focus Semantics
-
-- Notifications are delivered even when the current terminal/session is focused.
-- `suppressWhenFocused` and `focusCommand` are accepted for compatibility but do not suppress notifier delivery.
-
-## Required Validation Before Merging
-
-Run from repo root:
+Before claiming work is done/correct/validated, run:
 
 ```bash
-bun run check
-OPENCODE_WORKFLOW_SUITE_E2E_STRICT=true bun run test:e2e
-bun run test:e2e:npm
+bun run check:full
 ```
 
-Repo-local unit coverage is in `test/repo-local-*.test.ts`; keep these updated when changing repo URL parsing, auth plan, clone root resolution, or git error mapping.
+If you cannot run it, do not claim full validation. State exactly what was not run and why.
 
-If source code changes, ensure build output is refreshed:
+## Ask User If
 
-```bash
-bun run build
-```
-
-## CI Expectations
-
-CI file: `.github/workflows/ci.yml`
-
-- `check` and `e2e` run on push/PR (not on scheduled runs)
-- `e2e_npm` runs on schedule and optional manual dispatch
-
-If CI behavior changes, preserve this intent unless there is a clear replacement.
-
-## Editing Guidance
-
-- Keep changes small and contract-safe; prefer explicit, test-backed behavior changes.
-- Add or update tests with every behavioral change.
-- Avoid introducing new top-level env naming unless necessary; prefer extending existing workflow-suite names.
-- Do not remove migration notes in `README.md` without a coordinated major-version plan.
-
-## Release and Versioning
-
-Follow `RELEASING.md` for release flow.
-
-Typical sequence:
-
-```bash
-bun run release:verify
-bun run release:patch
-```
-
-Use `minor`/`major` only when API or behavior impact justifies it.
+- A change is breaking (public exports, event names, env names, tool schema/result shape).
+- A destructive repo-local behavior change is required (default update policy, reset semantics, auth posture).

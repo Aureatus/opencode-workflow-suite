@@ -34,6 +34,7 @@
     "opencode:npm:config": "bun run scripts/run-opencode-npm.ts debug config",
     "lint": "ultracite check --error-on-warnings",
     "check": "bun run lint && bun run typecheck && bun run test && bun run test:integration && bun run build",
+    "check:full": "bun run check && OPENCODE_WORKFLOW_SUITE_E2E_STRICT=true bun run test:e2e && bun run test:e2e:npm",
     "release:verify": "bun run check && npm pack --dry-run",
     "release:patch": "npm version patch -m \"chore(release): v%s\"",
     "release:minor": "npm version minor -m \"chore(release): v%s\"",

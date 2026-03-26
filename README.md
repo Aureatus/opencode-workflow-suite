@@ -6,6 +6,13 @@ OpenCode workflow plugin that combines:
 - notifier gating that waits for enforcer outcomes before signaling "ready"
 - external repo preparation via `repo_ensure_local`
 
+## Component docs
+
+- `src/todo-enforcer/README.md`
+- `src/notifier/README.md`
+- `src/repo-local/README.md`
+- `src/workflow-core/README.md`
+
 ## Install
 
 ```json
@@ -133,6 +140,7 @@ Repo env vars:
 ```bash
 bun install
 bun run check
+bun run check:full
 bun run test:e2e
 bun run test:e2e:npm
 ```
