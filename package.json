@@ -1,6 +1,6 @@
 {
   "name": "opencode-workflow-suite",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "OpenCode workflow plugin combining todo enforcement and notifier gating",
   "packageManager": "bun@1.2.22",
   "type": "module",
