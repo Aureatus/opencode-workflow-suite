@@ -23,7 +23,7 @@ Notifier logic depends on these events; rename with care.
 ## Configuration
 
 - options are defined in `config.ts` (`TodoEnforcerOptions`)
-- stop command env: `OPENCODE_WORKFLOW_SUITE_STOP_COMMAND`
+- stop command is configured through `todoEnforcer.stopCommand`
 
 ## Validation
 

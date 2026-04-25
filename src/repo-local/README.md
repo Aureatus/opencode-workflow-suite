@@ -18,11 +18,11 @@ This module provides `repo_ensure_local`, vendored from `opencode-repo-local`.
 - default `update_mode` is `ff-only` (safe default)
 - also supports `fetch-only` and `reset-clean`
 
-## Environment variables
+## Key arguments
 
-- `OPENCODE_REPO_CLONE_ROOT` (absolute path override)
-- `OPENCODE_REPO_ALLOW_SSH=true`
-- `OPENCODE_REPO_TELEMETRY_PATH`
+- `clone_root` (absolute path override for local clone root)
+- `allow_ssh` (explicitly allow SSH-style URLs)
+- `auth_mode` (`auto`, `https`, `ssh`)
 
 ## Validation
 

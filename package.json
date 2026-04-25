@@ -11,14 +11,17 @@
     ".": {
       "types": "./index.d.ts",
       "default": "./dist/index.mjs"
-    }
+    },
+    "./schema/workflow-suite.config.schema.json": "./schema/workflow-suite.config.schema.json"
   },
   "files": [
     "dist",
     "index.d.ts",
     "README.md",
     "LICENSE",
-    "docs"
+    "docs",
+    "schema",
+    "examples"
   ],
   "scripts": {
     "dev": "bunx tsdown --watch",
@@ -32,9 +35,12 @@
     "opencode:local:config": "opencode debug config",
     "opencode:npm": "bun run scripts/run-opencode-npm.ts",
     "opencode:npm:config": "bun run scripts/run-opencode-npm.ts debug config",
+    "schema:generate": "bun run scripts/generate-config-schema.ts",
+    "schema:check": "bun run scripts/generate-config-schema.ts --check",
     "lint": "ultracite check --error-on-warnings",
-    "check": "bun run lint && bun run typecheck && bun run test && bun run test:integration && bun run build",
-    "check:full": "bun run check && OPENCODE_WORKFLOW_SUITE_E2E_STRICT=true bun run test:e2e && bun run test:e2e:npm",
+    "check": "bun run schema:check && bun run lint && bun run typecheck && bun run test && bun run test:integration && bun run build",
+    "check:full": "bun run check && OPENCODE_WORKFLOW_SUITE_E2E_STRICT=true bun run test:e2e",
+    "check:published": "bun run test:e2e:npm",
     "release:verify": "bun run check && npm pack --dry-run",
     "release:patch": "npm version patch -m \"chore(release): v%s\"",
     "release:minor": "npm version minor -m \"chore(release): v%s\"",
@@ -67,7 +73,10 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@opencode-ai/plugin": "^1.0.150"
+    "@opencode-ai/plugin": "^1.14.24",
+    "@opencode-ai/sdk": "^1.14.24",
+    "strip-json-comments": "^5.0.3",
+    "zod": "^3.24.1"
   },
   "devDependencies": {
     "@biomejs/biome": "2.3.13",
@@ -75,6 +84,7 @@
     "husky": "^9.1.7",
     "tsdown": "^0.20.3",
     "typescript": "^5.9.3",
-    "ultracite": "7.1.4"
+    "ultracite": "7.1.4",
+    "zod-to-json-schema": "^3.24.6"
   }
 }

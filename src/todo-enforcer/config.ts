@@ -1,3 +1,4 @@
+import type { TodoEnforcerOptions } from "../workflow-core/workflow-suite-options";
 import {
   CONTINUATION_PROMPT,
   DEFAULT_ABORT_WINDOW_MS,
@@ -13,36 +14,9 @@ import {
 } from "./constants";
 import type { TodoEnforcerConfig } from "./types";
 
-export interface TodoEnforcerOptions {
-  enabled?: boolean;
-  prompt?: string;
-  stopCommand?: string;
-  skipAgents?: string[];
-  countdownMs?: number;
-  countdownGraceMs?: number;
-  continuationCooldownMs?: number;
-  abortWindowMs?: number;
-  failureResetWindowMs?: number;
-  maxConsecutiveFailures?: number;
-  sessionTtlMs?: number;
-  sessionPruneIntervalMs?: number;
-  debug?: boolean;
-  guards?: {
-    abortWindow?: boolean;
-    backgroundTasks?: boolean;
-    skippedAgents?: boolean;
-    stopState?: boolean;
-  };
-  hasRunningBackgroundTasks?: (sessionID: string) => boolean;
-  now?: () => number;
-}
+export type { TodoEnforcerOptions } from "../workflow-core/workflow-suite-options";
 
 const defaultNow = (): number => Date.now();
-
-const envValue = (name: string): string | undefined => {
-  const value = process.env[name]?.trim();
-  return value && value.length > 0 ? value : undefined;
-};
 
 export const createTodoEnforcerConfig = (
   options?: TodoEnforcerOptions
@@ -50,10 +24,7 @@ export const createTodoEnforcerConfig = (
   return {
     enabled: options?.enabled ?? true,
     prompt: options?.prompt ?? CONTINUATION_PROMPT,
-    stopCommand:
-      options?.stopCommand ??
-      envValue("OPENCODE_WORKFLOW_SUITE_STOP_COMMAND") ??
-      STOP_CONTINUATION_COMMAND,
+    stopCommand: options?.stopCommand ?? STOP_CONTINUATION_COMMAND,
     skipAgents: options?.skipAgents ?? [...DEFAULT_SKIP_AGENTS],
     countdownMs: options?.countdownMs ?? DEFAULT_COUNTDOWN_MS,
     countdownGraceMs: options?.countdownGraceMs ?? DEFAULT_COUNTDOWN_GRACE_MS,

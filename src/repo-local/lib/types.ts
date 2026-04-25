@@ -18,6 +18,7 @@ export interface RepoEnsureLocalArgs {
   repo: string;
   ref?: string;
   depth?: number;
+  clone_root?: string;
   update_mode?: UpdateMode;
   allow_ssh?: boolean;
   auth_mode?: AuthMode;

@@ -1,34 +1,56 @@
 import type { Plugin } from "@opencode-ai/plugin";
-import {
-  createWorkflowNotifierConfig,
-  type WorkflowNotifierOptions,
-} from "./notifier/config";
+import { createWorkflowNotifierConfig } from "./notifier/config";
 import { createWorkflowNotifier } from "./notifier/notifier";
 import { repoEnsureLocalTool } from "./repo-local/tools/repo-ensure-local";
-import {
-  createTodoEnforcerConfig,
-  type TodoEnforcerOptions,
-} from "./todo-enforcer/config";
+import { createTodoEnforcerConfig } from "./todo-enforcer/config";
 import { todoEnforcerDebugPingTool } from "./todo-enforcer/debug-tool";
 import { createTodoEnforcerOrchestrator } from "./todo-enforcer/orchestrator";
 import { createStopStateStore } from "./todo-enforcer/stop-state";
+import {
+  loadWorkflowSuiteOptionsFromFile,
+  mergeWorkflowSuiteOptions,
+} from "./workflow-core/file-config";
+import type { WorkflowSuiteOptions as WorkflowSuiteOptionsType } from "./workflow-core/workflow-suite-options";
 
 export type { WorkflowNotifierOptions } from "./notifier/config";
 export type { TodoEnforcerOptions } from "./todo-enforcer/config";
+export type {
+  WorkflowSuiteModulesOptions,
+  WorkflowSuiteOptions,
+} from "./workflow-core/workflow-suite-options";
 
-export interface TodoWorkflowOptions {
-  todoEnforcer?: TodoEnforcerOptions;
-  notifier?: WorkflowNotifierOptions;
-}
+export type TodoWorkflowOptions = WorkflowSuiteOptionsType;
 
-export type WorkflowSuiteOptions = TodoWorkflowOptions;
+const resolveModuleEnabled = (
+  optionValue: boolean | undefined,
+  defaultValue = true
+): boolean => {
+  return optionValue ?? defaultValue;
+};
 
 const createHooks = (
   input: Parameters<Plugin>[0],
-  options?: TodoWorkflowOptions
+  options?: WorkflowSuiteOptionsType
 ) => {
-  const config = createTodoEnforcerConfig(options?.todoEnforcer);
-  const notifierConfig = createWorkflowNotifierConfig(options?.notifier);
+  const fileOptions = loadWorkflowSuiteOptionsFromFile(input);
+  const resolvedOptions = mergeWorkflowSuiteOptions(fileOptions, options);
+
+  const todoModuleEnabled = resolveModuleEnabled(
+    resolvedOptions?.modules?.todoEnforcer
+  );
+  const notifierModuleEnabled = resolveModuleEnabled(
+    resolvedOptions?.modules?.notifier
+  );
+  const repoLocalModuleEnabled = resolveModuleEnabled(
+    resolvedOptions?.modules?.repoLocal
+  );
+
+  const config = createTodoEnforcerConfig(resolvedOptions?.todoEnforcer);
+  config.enabled = config.enabled && todoModuleEnabled;
+  const notifierConfig = createWorkflowNotifierConfig(
+    resolvedOptions?.notifier
+  );
+  notifierConfig.enabled = notifierConfig.enabled && notifierModuleEnabled;
   const stopState = createStopStateStore();
   const notifier = createWorkflowNotifier({
     config: notifierConfig,
@@ -41,11 +63,17 @@ const createHooks = (
     stopState,
   });
 
+  const tool = {
+    todo_enforcer_debug_ping: todoEnforcerDebugPingTool,
+    ...(repoLocalModuleEnabled
+      ? {
+          repo_ensure_local: repoEnsureLocalTool,
+        }
+      : {}),
+  };
+
   return {
-    tool: {
-      todo_enforcer_debug_ping: todoEnforcerDebugPingTool,
-      repo_ensure_local: repoEnsureLocalTool,
-    },
+    tool,
     event: async (payload: {
       event: Parameters<typeof orchestrator.onEvent>[0]["event"];
     }) => {
@@ -84,7 +112,7 @@ export const WorkflowSuitePlugin: Plugin = (input) => {
 };
 
 export const createWorkflowSuitePlugin = (
-  options?: TodoWorkflowOptions
+  options?: WorkflowSuiteOptionsType
 ): Plugin => {
   return (input) => {
     return Promise.resolve(createHooks(input, options));

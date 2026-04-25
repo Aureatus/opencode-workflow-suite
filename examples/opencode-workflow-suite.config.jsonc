@@ -1,0 +1,70 @@
+{
+  // Optional: editor schema validation
+  "$schema": "https://unpkg.com/opencode-workflow-suite/schema/workflow-suite.config.schema.json",
+
+  // Enable/disable plugin modules
+  "modules": {
+    "todoEnforcer": true,
+    "notifier": true,
+    "repoLocal": true
+  },
+
+  "todoEnforcer": {
+    "enabled": true,
+    "prompt": "Please continue by updating and completing your todo list before proceeding.",
+    "stopCommand": "/stop-continuation",
+    "skipAgents": ["research", "docs"],
+    "countdownMs": 2000,
+    "countdownGraceMs": 500,
+    "continuationCooldownMs": 5000,
+    "abortWindowMs": 3000,
+    "failureResetWindowMs": 300000,
+    "maxConsecutiveFailures": 5,
+    "sessionTtlMs": 86400000,
+    "sessionPruneIntervalMs": 600000,
+    "debug": false,
+    "guards": {
+      "abortWindow": true,
+      "backgroundTasks": true,
+      "skippedAgents": true,
+      "stopState": true
+    }
+  },
+
+  "notifier": {
+    "enabled": true,
+    "settleMs": 3000,
+    "maxWaitMs": 10000,
+    "pollMs": 400,
+    "cooldownMs": 1500,
+    "showToastFallback": true,
+
+    // Kept for API compatibility; focused sessions still notify.
+    "suppressWhenFocused": false,
+    "focusTitleHints": ["opencode", "terminal", "ghostty"],
+    "focusCommand": {
+      "enabled": false,
+      "path": "",
+      "args": []
+    },
+
+    "quietHours": {
+      "enabled": false,
+      "start": "22:00",
+      "end": "08:00"
+    },
+    "events": {
+      "terminalReady": true,
+      "paused": true,
+      "enforcerFailure": true,
+      "error": true,
+      "permission": true,
+      "question": true
+    },
+    "command": {
+      "enabled": true,
+      "path": "paplay",
+      "args": ["/home/you/sounds/opencode-ready.ogg"]
+    }
+  }
+}

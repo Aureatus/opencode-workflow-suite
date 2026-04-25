@@ -48,15 +48,14 @@ function ensureWithinRoot(root: string, target: string): void {
   }
 }
 
-export async function resolveCloneRoot(): Promise<string> {
-  const fromEnv = process.env.OPENCODE_REPO_CLONE_ROOT?.trim();
-  const selected = fromEnv || DEFAULT_CLONE_ROOT;
+export async function resolveCloneRoot(cloneRoot?: string): Promise<string> {
+  const selected = cloneRoot?.trim() || DEFAULT_CLONE_ROOT;
   const expanded = expandHome(selected);
 
-  if (fromEnv && !path.isAbsolute(expanded)) {
+  if (cloneRoot && !path.isAbsolute(expanded)) {
     throw new RepoPluginError(
       "INVALID_CLONE_ROOT",
-      "OPENCODE_REPO_CLONE_ROOT must be an absolute path"
+      "clone_root must be an absolute path"
     );
   }
 

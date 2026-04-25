@@ -55,6 +55,12 @@ const REPO_TOOL_ARGS = {
     .positive()
     .optional()
     .describe("Optional shallow clone depth."),
+  clone_root: tool.schema
+    .string()
+    .optional()
+    .describe(
+      "Optional absolute path override for local clone root. Defaults to ~/.opencode/repos when omitted."
+    ),
   update_mode: tool.schema
     .enum(UPDATE_MODE_VALUES)
     .optional()
@@ -63,7 +69,7 @@ const REPO_TOOL_ARGS = {
     .boolean()
     .optional()
     .describe(
-      "Allow git@host:owner/repo.git URLs. Defaults to false unless OPENCODE_REPO_ALLOW_SSH=true. Set true when the user relies on SSH auth."
+      "Allow git@host:owner/repo.git URLs. Defaults to false. Set true when the user relies on SSH auth."
     ),
   auth_mode: tool.schema
     .string()
@@ -353,15 +359,14 @@ export async function repoEnsureLocal(
   const ref = args.ref?.trim() || undefined;
   const mode = normalizeUpdateMode(args.update_mode);
   const authMode = normalizeAuthMode(args.auth_mode);
-  const allowSsh =
-    args.allow_ssh ?? process.env.OPENCODE_REPO_ALLOW_SSH === "true";
+  const allowSsh = args.allow_ssh ?? false;
   const shouldAllowSshInput = allowSsh || authMode !== "https";
   const parsedRepo = parseRepoUrl(repoInput, shouldAllowSshInput);
   const remotePlan = resolveRepoRemotePlan(parsedRepo, authMode);
 
   await ensureGitAvailable();
 
-  const cloneRoot = await resolveCloneRoot();
+  const cloneRoot = await resolveCloneRoot(args.clone_root);
   const localPath = buildRepoPath(cloneRoot, parsedRepo);
   const actions: string[] = [];
 

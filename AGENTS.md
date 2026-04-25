@@ -15,7 +15,7 @@ If a change is isolated to one module, also follow the closest scoped guide:
 - Public exports in `src/index.ts` / `index.d.ts`:
   - `WorkflowSuitePlugin`
   - `createWorkflowSuitePlugin`
-- Workflow-suite env names are the only supported env contract for workflow behavior.
+- User-facing behavior configuration is file/direct-options based (`WorkflowSuiteOptions`), not env-based.
 - Notifier telemetry kinds stay stable: `notifier_sent`, `notifier_suppressed`.
 - Enforcer lifecycle kinds used by tests/E2E stay stable: `chat_message_seen`, `idle_seen`, `stop_set_chat`, `debug_ping_tool`.
 - Repo-local tool compatibility stays stable (`repo_ensure_local` args/result field names).
@@ -37,5 +37,5 @@ If you cannot run it, do not claim full validation. State exactly what was not r
 
 ## Ask User If
 
-- A change is breaking (public exports, event names, env names, tool schema/result shape).
+- A change is breaking (public exports, event names, config shape, tool schema/result shape).
 - A destructive repo-local behavior change is required (default update policy, reset semantics, auth posture).

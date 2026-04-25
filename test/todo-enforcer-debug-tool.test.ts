@@ -26,12 +26,13 @@ describe("todo enforcer debug ping tool", () => {
       abort: new AbortController().signal,
       metadata: ignoreMetadata,
       ask: allowAsk,
-    } as ToolContext;
+    } as unknown as ToolContext;
 
-    const output = await todoEnforcerDebugPingTool.execute(
+    const result = await todoEnforcerDebugPingTool.execute(
       { marker: "marker-1" },
       context
     );
+    const output = typeof result === "string" ? result : result.output;
     const parsed = JSON.parse(output) as {
       ok: boolean;
       marker: string;

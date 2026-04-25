@@ -46,6 +46,11 @@ import {
 import { createWorkflowSuitePlugin } from "opencode-workflow-suite";
 
 export default createWorkflowSuitePlugin({
+  modules: {
+    todoEnforcer: true,
+    notifier: true,
+    repoLocal: true,
+  },
   todoEnforcer: {
     countdownMs: 1500,
     continuationCooldownMs: 7000,
@@ -63,6 +68,53 @@ export default createWorkflowSuitePlugin({
 });
 ```
 
+Project config file (JSON/JSONC):
+
+- `opencode-workflow-suite.config.jsonc`
+- `opencode-workflow-suite.config.json`
+- `.opencode/workflow-suite.config.jsonc`
+- `.opencode/workflow-suite.config.json`
+
+The plugin looks for these files in the current project/worktree and loads the first match.
+Direct options passed to `createWorkflowSuitePlugin(...)` override file values.
+
+JSON Schema:
+
+- `https://unpkg.com/opencode-workflow-suite/schema/workflow-suite.config.schema.json`
+- local package path: `schema/workflow-suite.config.schema.json`
+- generated from Zod source (`src/workflow-core/workflow-suite-options.ts`)
+
+Full example:
+
+- `examples/opencode-workflow-suite.config.jsonc`
+
+Example `opencode-workflow-suite.config.jsonc`:
+
+```jsonc
+{
+  "$schema": "https://unpkg.com/opencode-workflow-suite/schema/workflow-suite.config.schema.json",
+  "modules": {
+    "todoEnforcer": true,
+    "notifier": true,
+    "repoLocal": false
+  },
+  "notifier": {
+    "command": {
+      "enabled": true,
+      "path": "/usr/bin/paplay",
+      "args": ["/home/you/sounds/opencode-ready.ogg"]
+    },
+    "events": {
+      "terminalReady": true,
+      "permission": false,
+      "question": false
+    }
+  }
+}
+```
+
+Configuration is file/direct-options first. Runtime env vars are intended for telemetry and test harness controls, not end-user feature configuration.
+
 ## Notifier behavior
 
 - waits `notifier.settleMs` after `session.idle`
@@ -74,9 +126,19 @@ Command placeholders:
 
 - `{event}` `{message}` `{project}` `{reason}` `{sessionID}` `{sessionTitle}`
 
-Env override:
+Sound example (Linux):
 
-- `OPENCODE_WORKFLOW_SUITE_NOTIFY_COMMAND=/path/to/script-or-binary`
+```jsonc
+{
+  "notifier": {
+    "command": {
+      "enabled": true,
+      "path": "paplay",
+      "args": ["/home/you/sounds/opencode-ready.ogg"]
+    }
+  }
+}
+```
 
 Optional notifier controls:
 
@@ -120,30 +182,30 @@ Arguments:
 - `repo` (required): `https://host/owner/repo(.git)`, `git@host:owner/repo.git` (with `allow_ssh=true`), `host/owner/repo`, or `owner/repo`
 - `ref` (optional): branch/tag/SHA to checkout after clone/fetch
 - `depth` (optional): shallow clone depth
+- `clone_root` (optional): absolute path override for local clone root
 - `update_mode` (optional): `ff-only` (default), `fetch-only`, `reset-clean`
 - `allow_ssh` (optional): allow SSH-style remote input
 - `auth_mode` (optional): `auto` (default), `https`, `ssh`
-
-Repo env vars:
-
-- `OPENCODE_REPO_CLONE_ROOT` (env-only absolute path override; default `~/.opencode/repos`)
-- `OPENCODE_REPO_ALLOW_SSH=true`
-- `OPENCODE_REPO_TELEMETRY_PATH`
 
 ## Development
 
 ```bash
 bun install
+bun run schema:generate
 bun run check
 bun run check:full
 bun run test:e2e
-bun run test:e2e:npm
+bun run check:published
 ```
 
 E2E notes:
 
 - `OPENCODE_CONFIG_CONTENT` merges with existing OpenCode config; for deterministic runs, the E2E harness isolates config via `XDG_CONFIG_HOME`
 - `OPENCODE_WORKFLOW_SUITE_E2E_NPM_SANDBOX` can override npm-mode sandbox path (must be absolute)
+- default E2E model is `opencode/minimax-m2.5-free`
+- override model with `OPENCODE_WORKFLOW_SUITE_E2E_MODEL`
+- free-model enforcement is on by default; set `OPENCODE_WORKFLOW_SUITE_E2E_ENFORCE_FREE_MODEL=false` to allow non-free overrides
+- `check:full` validates local source; `check:published` validates the currently published npm package
 
 ## Releasing
 
@@ -152,19 +214,14 @@ E2E notes:
 
 See `RELEASING.md` for full workflow details.
 
-Primary env vars are now:
+Operational env vars (telemetry/tests):
 
-- `OPENCODE_WORKFLOW_SUITE_STOP_COMMAND`
-- `OPENCODE_WORKFLOW_SUITE_NOTIFY_COMMAND`
 - `OPENCODE_WORKFLOW_SUITE_TELEMETRY_PATH`
 - `OPENCODE_WORKFLOW_SUITE_TELEMETRY_CONTEXT`
 - `OPENCODE_WORKFLOW_SUITE_TELEMETRY`
 - `OPENCODE_WORKFLOW_SUITE_E2E_MAX_ATTEMPTS`
 - `OPENCODE_WORKFLOW_SUITE_E2E_STRICT`
 - `OPENCODE_WORKFLOW_SUITE_E2E_NPM_SANDBOX`
-
-Repo tool env vars:
-
-- `OPENCODE_REPO_CLONE_ROOT`
-- `OPENCODE_REPO_ALLOW_SSH`
+- `OPENCODE_WORKFLOW_SUITE_E2E_MODEL`
+- `OPENCODE_WORKFLOW_SUITE_E2E_ENFORCE_FREE_MODEL`
 - `OPENCODE_REPO_TELEMETRY_PATH`

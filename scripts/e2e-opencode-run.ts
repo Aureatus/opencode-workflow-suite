@@ -1,5 +1,12 @@
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import {
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 
@@ -31,6 +38,7 @@ interface E2ECase {
   extraEnv?:
     | Record<string, string>
     | ((args: { caseDirectory: string }) => Record<string, string>);
+  prepareCase?: (args: { caseDirectory: string }) => Promise<void> | void;
   id: string;
   prompt: string;
   assert: (input: {
@@ -75,7 +83,7 @@ const shouldRetryCaseAssertion = (
   );
 };
 
-const E2E_STOP_COMMAND = "STOP_TODO_CONTINUATION_NOW";
+const E2E_STOP_COMMAND = "/stop-continuation";
 
 const E2E_NPM_SANDBOX_DIRECTORY = path.join(
   os.homedir(),
@@ -83,6 +91,8 @@ const E2E_NPM_SANDBOX_DIRECTORY = path.join(
   "opencode-workflow-suite",
   "npm-e2e-sandbox"
 );
+
+const DEFAULT_E2E_MODEL = "opencode/minimax-m2.5-free";
 
 const resolveNpmSandboxDirectory = (): string => {
   const fromEnv =
@@ -110,6 +120,26 @@ const STRICT_TELEMETRY =
   process.env.OPENCODE_WORKFLOW_SUITE_E2E_STRICT === "true";
 const RETRYABLE_FAILURE_PATTERN =
   /timed out|timeout|rate limit|429|502|503|504|econnreset|etimedout|enotfound|eai_again|network/i;
+
+const resolveE2EModel = (): string => {
+  const configured = process.env.OPENCODE_WORKFLOW_SUITE_E2E_MODEL?.trim();
+  const selected =
+    configured && configured.length > 0 ? configured : DEFAULT_E2E_MODEL;
+
+  const enforceFree =
+    process.env.OPENCODE_WORKFLOW_SUITE_E2E_ENFORCE_FREE_MODEL !== "false";
+  const looksFree =
+    selected.endsWith(":free") ||
+    selected.endsWith("-free") ||
+    selected === "openrouter/free";
+  if (enforceFree && !looksFree) {
+    throw new Error(
+      `E2E model must be free when OPENCODE_WORKFLOW_SUITE_E2E_ENFORCE_FREE_MODEL is enabled. Received: ${selected}`
+    );
+  }
+
+  return selected;
+};
 
 function parseMode(argv: string[]): E2EMode {
   const modeArgIndex = argv.indexOf("--mode");
@@ -146,15 +176,17 @@ async function buildRunEnvironment(
   projectDirectory: string,
   npmSandboxDirectory: string
 ): Promise<RunEnvironment> {
+  const model = resolveE2EModel();
+
   if (mode === "npm") {
     await mkdir(npmSandboxDirectory, { recursive: true });
     return {
       cwd: npmSandboxDirectory,
       envOverrides: {
         OPENCODE_CONFIG_CONTENT: JSON.stringify({
+          model,
           plugin: ["opencode-workflow-suite"],
         }),
-        OPENCODE_WORKFLOW_SUITE_STOP_COMMAND: E2E_STOP_COMMAND,
       },
     };
   }
@@ -165,9 +197,9 @@ async function buildRunEnvironment(
     cwd: projectDirectory,
     envOverrides: {
       OPENCODE_CONFIG_CONTENT: JSON.stringify({
+        model,
         plugin: [localPluginSpec],
       }),
-      OPENCODE_WORKFLOW_SUITE_STOP_COMMAND: E2E_STOP_COMMAND,
     },
   };
 }
@@ -378,10 +410,25 @@ function buildCases(): E2ECase[] {
     {
       id: "notifier-suppression",
       prompt: "Automated verification prompt. Reply with exactly QUIET_OK.",
-      extraEnv: {
-        OPENCODE_WORKFLOW_SUITE_QUIET_HOURS_ENABLED: "true",
-        OPENCODE_WORKFLOW_SUITE_QUIET_HOURS_START: formatClock(startMinutes),
-        OPENCODE_WORKFLOW_SUITE_QUIET_HOURS_END: formatClock(endMinutes),
+      prepareCase: async ({ caseDirectory }) => {
+        const configPath = path.join(
+          caseDirectory,
+          "opencode-workflow-suite.config.jsonc"
+        );
+        const config = {
+          notifier: {
+            quietHours: {
+              enabled: true,
+              start: formatClock(startMinutes),
+              end: formatClock(endMinutes),
+            },
+          },
+        };
+        await writeFile(
+          configPath,
+          `${JSON.stringify(config, null, 2)}\n`,
+          "utf8"
+        );
       },
       assert: assertNotifierSuppressedCase,
     },
@@ -408,6 +455,7 @@ async function runCaseWithRetry(args: {
     let result: CommandResult;
     try {
       const caseEnv = resolveCaseEnv(runCase, caseCwd);
+      await runCase.prepareCase?.({ caseDirectory: caseCwd });
       result = await runOpencodeCommand(
         runCase.prompt,
         telemetryPath,

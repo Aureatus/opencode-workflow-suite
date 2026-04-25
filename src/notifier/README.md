@@ -15,15 +15,8 @@ This module controls workflow notification delivery.
 
 ## Configuration notes
 
-- notify command env: `OPENCODE_WORKFLOW_SUITE_NOTIFY_COMMAND`
-- timing envs:
-  - `OPENCODE_WORKFLOW_SUITE_NOTIFIER_SETTLE_MS`
-  - `OPENCODE_WORKFLOW_SUITE_NOTIFIER_MAX_WAIT_MS`
-  - `OPENCODE_WORKFLOW_SUITE_NOTIFIER_POLL_MS`
-- quiet-hours envs:
-  - `OPENCODE_WORKFLOW_SUITE_QUIET_HOURS_ENABLED`
-  - `OPENCODE_WORKFLOW_SUITE_QUIET_HOURS_START`
-  - `OPENCODE_WORKFLOW_SUITE_QUIET_HOURS_END`
+- preferred: set notifier behavior in project config (`opencode-workflow-suite.config.jsonc`)
+- notifier settings are read from config file / direct plugin options (`notifier.*`)
 
 ## Validation
 

@@ -59,7 +59,14 @@ export interface WorkflowNotifierOptions {
   now?: () => number;
 }
 
+export interface WorkflowSuiteModulesOptions {
+  todoEnforcer?: boolean;
+  notifier?: boolean;
+  repoLocal?: boolean;
+}
+
 export interface TodoWorkflowOptions {
+  modules?: WorkflowSuiteModulesOptions;
   todoEnforcer?: TodoEnforcerOptions;
   notifier?: WorkflowNotifierOptions;
 }

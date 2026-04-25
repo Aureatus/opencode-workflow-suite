@@ -14,7 +14,7 @@ Use for edits under `src/repo-local/*`.
 ## Change Impact
 
 - If tool schema or result shape changes, update root `README.md` and integration expectations.
-- If clone-root/auth behavior changes, verify env contracts remain stable.
+- If clone-root/auth behavior changes, verify `repo_ensure_local` argument contracts remain stable.
 
 ## Validation
 
